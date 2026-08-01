@@ -313,6 +313,8 @@
         <h2>전체 자산 포트폴리오</h2>
         <div class="pf-sum">
           <div class="row big"><span>총 자산 (주식 + 현금)</span><b id="pfTotal">—</b></div>
+          <div class="row big" style="color:var(--ink)"><span>순자산 (신용부채 차감)</span><b id="pfNet">—</b></div>
+          <div class="row"><span>신용·미수 부채</span><b id="pfDebt">0원</b></div>
           <div class="row"><span>주식 평가금액</span><b id="pfEval">—</b></div>
           <div class="row"><span>현금 · 예수금 ✎</span><b><input class="px-in" style="width:150px" type="number" inputmode="numeric" id="cashIn" placeholder="직접 입력" onchange="_setCash(this)"></b></div>
           <div class="row"><span>총 매수금액 (주식)</span><b id="pfCost">—</b></div>
@@ -958,6 +960,12 @@ function renderPortfolio() {
   let topName = '—', topEv = 0;
   Object.entries(grp).forEach(([n, v]) => { if (v > topEv) { topEv = v; topName = n; } });
   const credEv = rows.filter(r => creditNames.has(r.name) || /신용/.test(r.name)).reduce((a, r) => a + r.ev, 0);
+  /* 신용부채 = 신용 보유분의 매수원금(평단×수량) → 실제 갚아야 할 융자 원금에 근사 */
+  const credDebt = rows.filter(r => creditNames.has(r.name) || /신용/.test(r.name)).reduce((a, r) => a + r.cost, 0);
+  const netAsset = totAsset - credDebt;
+  $('pfDebt').textContent = credDebt > 0 ? '−' + fmt(credDebt) : '0원';
+  $('pfDebt').className = credDebt > 0 ? 'down' : '';
+  $('pfNet').textContent = fmt(netAsset);
   const setGauge = (p, pct, limit) => {
     $(p + 'Val').textContent = pct.toFixed(1) + '%';
     $(p + 'Bar').style.width = Math.min(100, pct) + '%';
