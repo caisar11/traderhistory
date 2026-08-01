@@ -322,7 +322,7 @@
           <div class="row"><span>주식 수익률</span><b id="pfRet">—</b></div>
           <div class="row"><span>누적 입금</span><b id="pfIn">0원</b></div>
           <div class="row"><span>누적 인출</span><b id="pfOut">0원</b></div>
-          <div class="row"><span>진짜 수익률 — 총 입금 원금 대비</span><b id="pfTrue">—</b></div>
+          <div class="row"><span>진짜 수익률 — 순자산 기준, 입금 원금 대비</span><b id="pfTrue">—</b></div>
         </div>
       </div>
       <div class="card" id="pfCardR">
@@ -953,12 +953,22 @@ function renderPortfolio() {
     ? ((totPl >= 0 ? '+' : '') + (totPl / pricedCost * 100).toFixed(2) + '%') : '—';
   $('pfRet').className = priced.length ? clsOf(totPl) : '';
 
-  /* ③ 입출금 요약 + 진짜 수익률 (총자산 + 누적인출 − 누적입금) ÷ 누적입금 */
+  /* 신용·미수 부채 = 종목별 미상환 신용 매수원금 합계 (매수 시 증가, 매도 시 비율 상환) */
+  const credDebt = Object.values(h).reduce((a, s) => a + (s.credCost || 0), 0);
+  const netAsset = totAsset - credDebt;
+  $('pfDebt').textContent = credDebt > 0 ? '−' + fmt(credDebt) : '0원';
+  $('pfDebt').className = credDebt > 0 ? 'down' : '';
+  $('pfNet').textContent = fmt(netAsset);
+  $('pfNet').className = netAsset < 0 ? 'down' : '';
+
+  /* ③ 입출금 요약 + 진짜 수익률
+     = (순자산 + 누적인출 − 누적입금) ÷ 누적입금
+     순자산은 신용부채를 이미 제외 → 빌린 원금은 빠지고 신용 매매의 평가이익만 반영됨 */
   const { dIn, dOut } = flowTotals();
   $('pfIn').textContent = fmt(dIn);
   $('pfOut').textContent = fmt(dOut);
   if (dIn > 0) {
-    const trueP = totAsset + dOut - dIn;
+    const trueP = netAsset + dOut - dIn;
     $('pfTrue').textContent = (trueP >= 0 ? '+' : '') + (trueP / dIn * 100).toFixed(2) + '%';
     $('pfTrue').className = clsOf(trueP);
   } else {
@@ -974,13 +984,6 @@ function renderPortfolio() {
   let topName = '—', topEv = 0;
   Object.entries(grp).forEach(([n, v]) => { if (v > topEv) { topEv = v; topName = n; } });
   const credEv = rows.filter(r => creditNames.has(r.name) || /신용/.test(r.name)).reduce((a, r) => a + r.ev, 0);
-  /* 신용·미수 부채 = 종목별 미상환 신용 매수원금 합계 (매수 시 증가, 매도 시 비율 상환) */
-  const credDebt = Object.values(h).reduce((a, s) => a + (s.credCost || 0), 0);
-  const netAsset = totAsset - credDebt;
-  $('pfDebt').textContent = credDebt > 0 ? '−' + fmt(credDebt) : '0원';
-  $('pfDebt').className = credDebt > 0 ? 'down' : '';
-  $('pfNet').textContent = fmt(netAsset);
-  $('pfNet').className = netAsset < 0 ? 'down' : '';
   const setGauge = (p, pct, limit) => {
     $(p + 'Val').textContent = pct.toFixed(1) + '%';
     $(p + 'Bar').style.width = Math.min(100, pct) + '%';
