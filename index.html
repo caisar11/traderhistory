@@ -323,6 +323,7 @@
           <div class="row"><span>누적 입금</span><b id="pfIn">0원</b></div>
           <div class="row"><span>누적 인출</span><b id="pfOut">0원</b></div>
           <div class="row"><span>진짜 수익률 — 순자산 기준, 입금 원금 대비</span><b id="pfTrue">—</b></div>
+          <div class="px-hint" id="pfTrueCalc" style="margin-top:2px">입출금 탭에서 실제 납입한 원금을 입금으로 기록하세요.</div>
         </div>
       </div>
       <div class="card" id="pfCardR">
@@ -384,7 +385,7 @@
         <div class="kpi"><div class="k-lbl">손익비</div><div class="k-val num" id="kRR">–</div><div class="k-sub">평균이익 ÷ 평균손실</div></div>
         <div class="kpi"><div class="k-lbl">계획 준수율</div><div class="k-val num" id="kPlan">–</div><div class="k-sub" id="kPlanSub">손절·목표 계획 대비</div></div>
       </div>
-      <div class="card"><h2>일별 누적 자산 추이 — 현금 포함</h2><div class="chart-wrap"><canvas id="chAsset"></canvas></div><div class="px-hint">막대 = 주식 평가금액(빨강) + 현금(파랑) 스택, 선 = 총자산. 앱을 여는 날마다 그날의 자산이 자동으로 기록·저장됩니다. ▲=입금, ▼=인출 시점.</div></div>
+      <div class="card"><h2>일별 누적 순자산 추이 — 신용부채 차감</h2><div class="chart-wrap"><canvas id="chAsset"></canvas></div><div class="px-hint">막대 = 주식 순자산(빨강, 평가금액−신용부채) + 현금(파랑) 스택, 선 = 순자산. 신용으로 빌린 원금은 제외됩니다. 앱을 여는 날마다 자동 기록·저장. ▲=입금, ▼=인출 시점.</div></div>
       <div class="card"><h2>월별 실현손익</h2><div class="chart-wrap"><canvas id="chMonthly"></canvas></div></div>
       <div class="card"><h2>감정별 승률 — 나는 어떤 상태일 때 잃는가</h2><div class="chart-wrap"><canvas id="chEmotion"></canvas></div></div>
       <div class="card"><h2>보유기간별 성과 — 나는 며칠 들고 갈 때 강한가</h2><div class="chart-wrap"><canvas id="chHold"></canvas></div><div class="px-hint" id="holdHint">매수-매도가 짝지어지면 자동 분석됩니다 (FIFO 기준).</div></div>
@@ -599,16 +600,18 @@ function setMode(m) {
 }
 
 function sampleAssetHist() {
-  /* 최근 30일 샘플: 완만한 우상향 + 등락 */
+  /* 최근 30일 샘플: 완만한 우상향 + 등락, 신용부채 500만 예시 */
   const out = {};
   const today = new Date();
   let stock = 61500000;
+  const debt = 5000000;
   for (let i = 29; i >= 0; i--) {
     const d = new Date(today); d.setDate(today.getDate() - i);
     const key = d.toISOString().slice(0, 10);
     stock = Math.round(stock * (1 + Math.sin(i * 1.7) * 0.012 + 0.0022));
     const cash = 5000000 + (i < 12 ? 800000 : 0);
-    out[key] = { t: stock + cash, s: stock, c: cash };
+    out[key] = { t: stock + cash, s: stock, c: cash,
+                 d: debt, ns: stock - debt, n: stock + cash - debt };
   }
   return out;
 }
@@ -931,18 +934,6 @@ function renderPortfolio() {
   const totPl = priced.reduce((a, r) => a + r.pl, 0);
   const pricedCost = priced.reduce((a, r) => a + r.cost, 0);
 
-  /* 오늘자 자산 스냅샷 자동 기록 (값이 바뀐 경우에만 저장) */
-  if (store && totAsset > 0) {
-    const today = new Date().toISOString().slice(0, 10);
-    const snap = { t: Math.round(totAsset), s: Math.round(stockEv), c: Math.round(cash) };
-    const prev = assetHist[today];
-    if (!prev || prev.t !== snap.t || prev.c !== snap.c) {
-      assetHist[today] = snap;
-      try { store.saveSnap({ [today]: snap }); } catch (e) {}
-      try { renderAssetChart(); } catch (e) {}
-    }
-  }
-
   $('pfTotal').textContent = fmt(totAsset);
   $('pfEval').textContent = fmt(stockEv);
   if (document.activeElement !== $('cashIn')) $('cashIn').value = cash || '';
@@ -961,6 +952,20 @@ function renderPortfolio() {
   $('pfNet').textContent = fmt(netAsset);
   $('pfNet').className = netAsset < 0 ? 'down' : '';
 
+  /* 오늘자 자산 스냅샷 자동 기록 — 순자산 기준 (신용부채 차감)
+     n=순자산, ns=순수 주식자산(주식평가−부채), c=현금 */
+  if (store && totAsset > 0) {
+    const today = new Date().toISOString().slice(0, 10);
+    const snap = { t: Math.round(totAsset), s: Math.round(stockEv), c: Math.round(cash),
+                   n: Math.round(netAsset), ns: Math.round(stockEv - credDebt), d: Math.round(credDebt) };
+    const prev = assetHist[today];
+    if (!prev || prev.n !== snap.n || prev.c !== snap.c || prev.d !== snap.d) {
+      assetHist[today] = snap;
+      try { store.saveSnap({ [today]: snap }); } catch (e) {}
+      try { renderAssetChart(); } catch (e) {}
+    }
+  }
+
   /* ③ 입출금 요약 + 진짜 수익률
      = (순자산 + 누적인출 − 누적입금) ÷ 누적입금
      순자산은 신용부채를 이미 제외 → 빌린 원금은 빠지고 신용 매매의 평가이익만 반영됨 */
@@ -971,9 +976,11 @@ function renderPortfolio() {
     const trueP = netAsset + dOut - dIn;
     $('pfTrue').textContent = (trueP >= 0 ? '+' : '') + (trueP / dIn * 100).toFixed(2) + '%';
     $('pfTrue').className = clsOf(trueP);
+    $('pfTrueCalc').textContent = `순자산 ${fmt(netAsset)} + 인출 ${fmt(dOut)} − 입금 ${fmt(dIn)} = ${fmtSigned(trueP)}`;
   } else {
     $('pfTrue').textContent = '입금 기록 필요';
     $('pfTrue').className = '';
+    $('pfTrueCalc').textContent = '입출금 탭에서 실제 납입한 원금을 입금으로 기록하세요.';
   }
 
   /* ② 리스크 점검: 단일종목 집중도(현물+신용 합산) · 신용 비중 */
@@ -1045,23 +1052,24 @@ function renderPortfolio() {
 function renderAssetChart() {
   const dates = Object.keys(assetHist).sort().slice(-60);   // 최근 60일
   if (!dates.length) { if (charts.chAsset) { charts.chAsset.destroy(); delete charts.chAsset; } return; }
-  const S = dates.map(d => assetHist[d].s || 0);
-  const C = dates.map(d => assetHist[d].c || 0);
-  const T = dates.map(d => assetHist[d].t || 0);
+  /* 순자산 기준 (신용부채 차감). 구버전 스냅샷(n/ns 없음)은 총액으로 폴백 */
+  const NS = dates.map(d => { const a = assetHist[d]; return a.ns != null ? a.ns : (a.s || 0); });
+  const C  = dates.map(d => assetHist[d].c || 0);
+  const NET = dates.map(d => { const a = assetHist[d]; return a.n != null ? a.n : (a.t || 0); });
   /* 입출금 시점 마커 (▲ 입금 / ▼ 인출) */
   const inMap = {}, outMap = {};
   withdrawals.forEach(w => {
     const m = w.type === 'in' ? inMap : outMap;
     m[w.date] = (m[w.date] || 0) + (+w.amount || 0);
   });
-  const mIn  = dates.map((d, i) => inMap[d]  != null ? T[i] : null);
-  const mOut = dates.map((d, i) => outMap[d] != null ? T[i] : null);
+  const mIn  = dates.map((d, i) => inMap[d]  != null ? NET[i] : null);
+  const mOut = dates.map((d, i) => outMap[d] != null ? NET[i] : null);
   drawChart('chAsset', {
     type: 'bar',
     data: {
       labels: dates.map(d => d.slice(5).replace('-', '.')),
       datasets: [
-        { type: 'line', label: '총자산 추이', data: T, order: 0,
+        { type: 'line', label: '순자산 추이', data: NET, order: 0,
           borderColor: '#0F172A', borderWidth: 2.5, tension: 0.25,
           pointRadius: dates.length > 20 ? 0 : 3, pointBackgroundColor: '#fff',
           pointBorderColor: '#0F172A', pointBorderWidth: 2, stack: 'line' },
@@ -1071,7 +1079,7 @@ function renderAssetChart() {
         { type: 'line', label: '▼ 인출', data: mOut, order: 0, showLine: false, stack: 'mo',
           pointStyle: 'triangle', pointRotation: 180, pointRadius: 7, pointHoverRadius: 9,
           pointBackgroundColor: '#D92D20', pointBorderColor: '#fff', pointBorderWidth: 1.5 },
-        { label: '주식 평가금액', data: S, backgroundColor: '#D92D20',
+        { label: '주식 순자산 (부채 차감)', data: NS, backgroundColor: '#D92D20',
           stack: 'asset', order: 1, maxBarThickness: 22 },
         { label: '현금 · 예수금', data: C, backgroundColor: '#1D4ED8',
           stack: 'asset', order: 1, maxBarThickness: 22,
