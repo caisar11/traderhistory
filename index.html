@@ -161,6 +161,22 @@
   .lg-row .amt{font-family:var(--mono);font-size:12px;color:var(--sub);font-weight:600}
   .lg-row .pct{font-family:var(--mono);font-weight:700;min-width:52px;text-align:right}
   .pf-sum{flex:1;min-width:0}
+  /* 포트폴리오 요약 재설계 */
+  .pf-hero-net{display:flex;flex-direction:column;gap:2px;padding:4px 2px 16px;border-bottom:1px solid var(--line)}
+  .pf-hero-net .lbl{font-size:12.5px;color:var(--sub);font-weight:600}
+  .pf-hero-net .lbl em{font-style:normal;font-size:10.5px;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:1px 6px;margin-left:5px;color:var(--sub)}
+  .pf-hero-net b{font-size:32px;font-weight:800;letter-spacing:-.03em;line-height:1.15;margin-top:2px}
+  .pf-hero-net .sub{font-size:12px;color:var(--sub);font-weight:600;margin-top:3px}
+  .pf-hi2{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:16px 0;border-bottom:1px solid var(--line)}
+  .pf-hi2 .hi{background:var(--bg);border-radius:12px;padding:13px 14px;display:flex;flex-direction:column;gap:1px}
+  .pf-hi2 .hi .lbl{font-size:11.5px;color:var(--sub);font-weight:600}
+  .pf-hi2 .hi b{font-size:20px;font-weight:800;letter-spacing:-.02em;line-height:1.25;margin-top:3px}
+  .pf-hi2 .hi .sub{font-size:11px;color:var(--sub);font-weight:600;margin-top:2px}
+  .pf-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;padding-top:14px}
+  .pf-grid .g-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--sub);min-height:40px}
+  .pf-grid .g-item b{font-size:14px;color:var(--ink);font-weight:700}
+  .pf-grid .g-item.cash .px-in{width:120px}
+  @media(max-width:520px){.pf-grid{grid-template-columns:1fr;gap:0}}
   .w-add{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
   .w-add input{border:1px solid var(--line-strong);border-radius:10px;padding:10px 11px;font-size:14px;outline:none;background:#fff}
   .w-add input:focus{border-color:var(--ink)}
@@ -183,9 +199,14 @@
   .r-badge{font-size:10.5px;font-weight:700;border-radius:5px;padding:1px 6px;display:none;background:#FEF1F0;color:#D92D20}
   .r-badge.on{display:inline-block}
   .gauge{height:9px;background:var(--bg);border:1px solid var(--line);border-radius:99px;position:relative;margin-top:7px}
-  .gauge i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:#15803D;max-width:100%;transition:width .3s}
+  .gauge i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:#15803D;max-width:100%;transition:width .3s,background .3s}
+  .gauge.caution i{background:#CA8A04}
   .gauge.warn i{background:#D92D20}
   .gauge em{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--line-strong)}
+  .r-stat{font-size:11px;font-weight:700;border-radius:5px;padding:1px 7px;margin-left:8px}
+  .r-stat.safe{background:#EBF9F0;color:#15803D}
+  .r-stat.caution{background:#FEF7E6;color:#B45309}
+  .r-stat.danger{background:#FEF1F0;color:#D92D20}
   .rep-sel{border:1px solid var(--line-strong);border-radius:8px;padding:5px 8px;font-size:12.5px;background:#fff;font-weight:600}
   .csv-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .csv-btns button{border:1px solid var(--line-strong);border-radius:10px;padding:12px;font-weight:700;font-size:13.5px;background:#fff}
@@ -310,21 +331,31 @@
     <!-- 💼 보유현황 -->
     <section class="view" id="view-portfolio">
       <div class="card" id="pfCard1">
-        <h2>전체 자산 포트폴리오</h2>
-        <div class="pf-sum">
-          <div class="row big"><span>총 자산 (주식 + 현금)</span><b id="pfTotal">—</b></div>
-          <div class="row big" style="color:var(--ink)"><span>순자산 (신용부채 차감)</span><b id="pfNet">—</b></div>
-          <div class="row"><span>신용·미수 부채</span><b id="pfDebt">0원</b></div>
-          <div class="row"><span>주식 평가금액</span><b id="pfEval">—</b></div>
-          <div class="row"><span>현금 · 예수금 ✎</span><b><input class="px-in" style="width:150px" type="number" inputmode="numeric" id="cashIn" placeholder="직접 입력" onchange="_setCash(this)"></b></div>
-          <div class="row"><span>총 매수금액 (주식)</span><b id="pfCost">—</b></div>
-          <div class="row"><span>평가손익</span><b id="pfPl">—</b></div>
-          <div class="row"><span>주식 수익률</span><b id="pfRet">—</b></div>
-          <div class="row"><span>누적 입금</span><b id="pfIn">0원</b></div>
-          <div class="row"><span>누적 인출</span><b id="pfOut">0원</b></div>
-          <div class="row"><span>진짜 수익률 — 순자산 기준, 입금 원금 대비</span><b id="pfTrue">—</b></div>
-          <div class="px-hint" id="pfTrueCalc" style="margin-top:2px">입출금 탭에서 실제 납입한 원금을 입금으로 기록하세요.</div>
+        <div class="pf-hero-net">
+          <span class="lbl">순자산 <em>신용부채 차감</em></span>
+          <b id="pfNet" class="num">—</b>
+          <span class="sub">총자산 <span class="num" id="pfTotal">—</span> · 부채 <span class="num down" id="pfDebt">0원</span></span>
         </div>
+        <div class="pf-hi2">
+          <div class="hi">
+            <span class="lbl">평가손익</span>
+            <b id="pfPl" class="num">—</b>
+            <span class="sub">주식 수익률 <span class="num" id="pfRet">—</span></span>
+          </div>
+          <div class="hi">
+            <span class="lbl">진짜 수익률</span>
+            <b id="pfTrue" class="num">—</b>
+            <span class="sub">순자산 기준 · 입금 대비</span>
+          </div>
+        </div>
+        <div class="pf-grid">
+          <div class="g-item"><span>주식 평가금액</span><b id="pfEval" class="num">—</b></div>
+          <div class="g-item"><span>총 매수금액</span><b id="pfCost" class="num">—</b></div>
+          <div class="g-item cash"><span>현금 · 예수금 ✎</span><input class="px-in" type="number" inputmode="numeric" id="cashIn" placeholder="직접 입력" onchange="_setCash(this)"></div>
+          <div class="g-item"><span>누적 입금</span><b id="pfIn" class="num">0원</b></div>
+          <div class="g-item"><span>누적 인출</span><b id="pfOut" class="num">0원</b></div>
+        </div>
+        <div class="px-hint" id="pfTrueCalc" style="margin-top:12px">입출금 탭에서 실제 납입한 원금을 입금으로 기록하세요.</div>
       </div>
       <div class="card" id="pfCardR">
         <h2>리스크 점검</h2>
@@ -333,10 +364,10 @@
           <div class="gauge" id="rConcG"><i id="rConcBar" style="width:0"></i><em style="left:40%"></em></div>
         </div>
         <div class="risk-row">
-          <div class="r-head"><span>신용·미수 비중</span><span class="r-badge" id="rCredBadge">⚠ 기준 초과</span><b class="num" id="rCredVal">—</b></div>
-          <div class="gauge" id="rCredG"><i id="rCredBar" style="width:0"></i><em style="left:20%"></em></div>
+          <div class="r-head"><span>신용·미수 비중 <span class="r-stat" id="rCredStat" style="display:none"></span></span><span class="r-badge" id="rCredBadge">⚠ 위험 구간</span><b class="num" id="rCredVal">—</b></div>
+          <div class="gauge" id="rCredG"><i id="rCredBar" style="width:0"></i><em style="left:25%"></em><em style="left:50%"></em></div>
         </div>
-        <div class="px-hint">기준선(회색 눈금): 단일종목 40% · 신용 20% (총자산 대비). 같은 종목의 현물+신용은 합산해 집중도를 계산하며, 종목명에 '신용'이 포함되거나 신용 체크된 기록이 있으면 신용으로 분류합니다.</div>
+        <div class="px-hint">단일종목 집중도: 총자산 대비, 눈금 40% 초과 시 경고. 신용·미수 비중: <b>순자산 대비</b> — 25% 이하 안전(녹색) / 25~50% 주의(노랑) / 50% 초과 위험(빨강). 신용부채는 신용 체크된 매수의 미상환 원금이며, 매도 시 자동 상환됩니다.</div>
       </div>
       <div class="card" id="pfCard2">
         <h2>자산 구성 — 종목별 · 현금 비중</h2>
@@ -939,18 +970,18 @@ function renderPortfolio() {
   if (document.activeElement !== $('cashIn')) $('cashIn').value = cash || '';
   $('pfCost').textContent = fmt(totCost);
   $('pfPl').textContent = priced.length ? fmtSigned(totPl) : (rows.length ? '현재가 입력 필요' : '—');
-  $('pfPl').className = priced.length ? clsOf(totPl) : '';
+  $('pfPl').style.color = priced.length ? (totPl > 0 ? 'var(--profit)' : totPl < 0 ? 'var(--loss)' : 'var(--ink)') : 'var(--sub)';
   $('pfRet').textContent = (priced.length && pricedCost > 0)
     ? ((totPl >= 0 ? '+' : '') + (totPl / pricedCost * 100).toFixed(2) + '%') : '—';
-  $('pfRet').className = priced.length ? clsOf(totPl) : '';
+  $('pfRet').style.color = priced.length ? (totPl > 0 ? 'var(--profit)' : totPl < 0 ? 'var(--loss)' : 'var(--sub)') : 'var(--sub)';
 
   /* 신용·미수 부채 = 종목별 미상환 신용 매수원금 합계 (매수 시 증가, 매도 시 비율 상환) */
   const credDebt = Object.values(h).reduce((a, s) => a + (s.credCost || 0), 0);
   const netAsset = totAsset - credDebt;
   $('pfDebt').textContent = credDebt > 0 ? '−' + fmt(credDebt) : '0원';
-  $('pfDebt').className = credDebt > 0 ? 'down' : '';
+  $('pfDebt').style.color = credDebt > 0 ? 'var(--loss)' : 'var(--sub)';
   $('pfNet').textContent = fmt(netAsset);
-  $('pfNet').className = netAsset < 0 ? 'down' : '';
+  $('pfNet').style.color = netAsset < 0 ? 'var(--loss)' : 'var(--ink)';
 
   /* 오늘자 자산 스냅샷 자동 기록 — 순자산 기준 (신용부채 차감)
      n=순자산, ns=순수 주식자산(주식평가−부채), c=현금 */
@@ -975,11 +1006,12 @@ function renderPortfolio() {
   if (dIn > 0) {
     const trueP = netAsset + dOut - dIn;
     $('pfTrue').textContent = (trueP >= 0 ? '+' : '') + (trueP / dIn * 100).toFixed(2) + '%';
-    $('pfTrue').className = clsOf(trueP);
+    $('pfTrue').style.color = trueP > 0 ? 'var(--profit)' : trueP < 0 ? 'var(--loss)' : 'var(--ink)';
     $('pfTrueCalc').textContent = `순자산 ${fmt(netAsset)} + 인출 ${fmt(dOut)} − 입금 ${fmt(dIn)} = ${fmtSigned(trueP)}`;
   } else {
     $('pfTrue').textContent = '입금 기록 필요';
-    $('pfTrue').className = '';
+    $('pfTrue').style.color = 'var(--sub)';
+    $('pfTrue').style.fontSize = '15px';
     $('pfTrueCalc').textContent = '입출금 탭에서 실제 납입한 원금을 입금으로 기록하세요.';
   }
 
@@ -990,16 +1022,28 @@ function renderPortfolio() {
   rows.forEach(r => { const b = baseOf(r.name); grp[b] = (grp[b] || 0) + r.ev; });
   let topName = '—', topEv = 0;
   Object.entries(grp).forEach(([n, v]) => { if (v > topEv) { topEv = v; topName = n; } });
-  const credEv = rows.filter(r => creditNames.has(r.name) || /신용/.test(r.name)).reduce((a, r) => a + r.ev, 0);
-  const setGauge = (p, pct, limit) => {
+  /* 게이지: caution/warn 2단 임계값, scaleMax로 눈금 위치 정렬 */
+  const setGauge = (p, pct, cautionAt, dangerAt, scaleMax, statuses) => {
     $(p + 'Val').textContent = pct.toFixed(1) + '%';
-    $(p + 'Bar').style.width = Math.min(100, pct) + '%';
-    $(p + 'G').classList.toggle('warn', pct > limit);
-    $(p + 'Badge').classList.toggle('on', pct > limit);
+    $(p + 'Bar').style.width = Math.min(100, pct / scaleMax * 100) + '%';
+    const g = $(p + 'G');
+    g.classList.toggle('caution', pct > cautionAt && pct <= dangerAt);
+    g.classList.toggle('warn', pct > dangerAt);
+    if ($(p + 'Badge')) $(p + 'Badge').classList.toggle('on', pct > dangerAt);
+    const stat = $(p + 'Stat');
+    if (stat && statuses) {
+      const s = pct > dangerAt ? statuses[2] : pct > cautionAt ? statuses[1] : statuses[0];
+      stat.textContent = s.label; stat.className = 'r-stat ' + s.cls; stat.style.display = '';
+    }
   };
   $('rConcName').textContent = rows.length ? topName : '—';
-  setGauge('rConc', totAsset > 0 ? topEv / totAsset * 100 : 0, 40);
-  setGauge('rCred', totAsset > 0 ? credEv / totAsset * 100 : 0, 20);
+  /* 단일종목 집중도: 총자산 대비, 40% 초과 경고 (기존 유지, 눈금 40%) */
+  setGauge('rConc', totAsset > 0 ? topEv / totAsset * 100 : 0, 40, 40, 100);
+  /* 신용·미수 비중: 순자산 대비 — 25% 안전 / 25~50% 주의 / 50% 초과 위험 (눈금 정렬 위해 scaleMax=75) */
+  const credRatio = netAsset > 0 ? credDebt / netAsset * 100 : 0;
+  setGauge('rCred', credRatio, 25, 50, 75, [
+    { label: '안전', cls: 'safe' }, { label: '주의', cls: 'caution' }, { label: '위험', cls: 'danger' }
+  ]);
 
   /* 자산 구성: 도넛 + 범례 (현금 포함) */
   const items = rows.map((r, i) => ({ label: r.name, v: r.ev, color: PALETTE[i % PALETTE.length] }));
