@@ -639,16 +639,30 @@ function holdings() {
     (a.date + String(a.createdAtMs||0).padStart(15,'0'))
       .localeCompare(b.date + String(b.createdAtMs||0).padStart(15,'0')))
     .forEach(t => {
-      const s = h[t.name] ??= { qty: 0, avg: 0, pnl: 0, cnt: 0 };
+      const s = h[t.name] ??= { qty: 0, avg: 0, pnl: 0, cnt: 0, credQty: 0, credCost: 0 };
       s.cnt++;
       if (t.side === 'buy') {
         const cost = s.qty * s.avg + t.qty * t.price;
         s.qty += t.qty;
         s.avg = s.qty > 0 ? cost / s.qty : 0;
+        if (t.credit) {                       // 신용 매수 → 융자(부채) 발생
+          s.credQty += t.qty;
+          s.credCost += t.qty * t.price;
+        }
       } else {
+        const before = s.qty;
         s.qty = Math.max(0, s.qty - t.qty);
         s.pnl += t.pnl || 0;
-        if (s.qty === 0) s.avg = 0;
+        /* 매도 시 신용분을 보유 비율만큼 우선 상환 (신용 융자금 회수) */
+        if (s.credQty > 0 && before > 0) {
+          const sold = Math.min(t.qty, before);
+          const reduceQty = Math.min(s.credQty, Math.round(s.credQty * sold / before));
+          const avgCredPrice = s.credCost / s.credQty;
+          s.credQty -= reduceQty;
+          s.credCost -= reduceQty * avgCredPrice;
+          if (s.credQty <= 0) { s.credQty = 0; s.credCost = 0; }
+        }
+        if (s.qty === 0) { s.avg = 0; s.credQty = 0; s.credCost = 0; }
       }
     });
   return h;
@@ -960,12 +974,13 @@ function renderPortfolio() {
   let topName = '—', topEv = 0;
   Object.entries(grp).forEach(([n, v]) => { if (v > topEv) { topEv = v; topName = n; } });
   const credEv = rows.filter(r => creditNames.has(r.name) || /신용/.test(r.name)).reduce((a, r) => a + r.ev, 0);
-  /* 신용부채 = 신용 보유분의 매수원금(평단×수량) → 실제 갚아야 할 융자 원금에 근사 */
-  const credDebt = rows.filter(r => creditNames.has(r.name) || /신용/.test(r.name)).reduce((a, r) => a + r.cost, 0);
+  /* 신용·미수 부채 = 종목별 미상환 신용 매수원금 합계 (매수 시 증가, 매도 시 비율 상환) */
+  const credDebt = Object.values(h).reduce((a, s) => a + (s.credCost || 0), 0);
   const netAsset = totAsset - credDebt;
   $('pfDebt').textContent = credDebt > 0 ? '−' + fmt(credDebt) : '0원';
   $('pfDebt').className = credDebt > 0 ? 'down' : '';
   $('pfNet').textContent = fmt(netAsset);
+  $('pfNet').className = netAsset < 0 ? 'down' : '';
   const setGauge = (p, pct, limit) => {
     $(p + 'Val').textContent = pct.toFixed(1) + '%';
     $(p + 'Bar').style.width = Math.min(100, pct) + '%';
