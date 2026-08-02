@@ -187,6 +187,20 @@
   .rr-tx b{font-size:13px;font-weight:700;display:block}
   .rr-tx small{font-size:11px;color:var(--sub);display:block;margin-top:1px;line-height:1.4}
   .rr-val{font-family:var(--mono);font-size:13.5px;font-weight:800;white-space:nowrap}
+  /* 관문5 지표 점검 */
+  .ind-item{display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .ind-item:last-child{border-bottom:0}
+  .ind-item input{width:17px;height:17px;margin-top:1px;accent-color:#15803D;flex:none;cursor:pointer}
+  .ind-item .tx{flex:1;min-width:0}
+  .ind-item .tx b{font-size:12.5px;font-weight:700}
+  .ind-item .tx b em{font-style:normal;font-size:10px;font-weight:700;border-radius:4px;padding:0 5px;margin-left:5px;background:var(--bg);color:var(--sub)}
+  .ind-item .tx small{font-size:11px;color:var(--sub);display:block;margin-top:1px;line-height:1.4}
+  /* 관문6 분할 비율 */
+  .split-seg{display:flex;flex-wrap:wrap;gap:7px}
+  .split-seg button{border:1px solid var(--line-strong);border-radius:9px;padding:8px 11px;background:#fff;font-size:12.5px;font-weight:700;color:var(--sub);transition:.12s;text-align:center;line-height:1.35}
+  .split-seg button small{display:block;font-size:10px;font-weight:500;color:var(--sub);margin-top:1px}
+  .split-seg button.sel{background:var(--ink);border-color:var(--ink);color:#fff}
+  .split-seg button.sel small{color:rgba(255,255,255,.7)}
 
   .btn-save{
     width:100%;margin-top:14px;padding:14px;border-radius:11px;
@@ -415,6 +429,20 @@
               <div class="cch-msg" id="cutMsg"></div>
             </div>
 
+            <!-- 관문 5: 차트 보조지표 점검 -->
+            <div class="cch cch5">
+              <div class="cch-h"><span class="cch-n">5</span> 차트 보조지표 점검 <span class="tf-score" id="indScore" style="margin-left:auto">0 / 8</span></div>
+              <div id="indList"></div>
+              <div class="cch-msg" id="indMsg">HTS 보조지표를 보고 해당하는 신호에 체크하세요.</div>
+            </div>
+
+            <!-- 관문 6: 분할매수 비율 -->
+            <div class="cch cch6">
+              <div class="cch-h"><span class="cch-n">6</span> 분할매수 비율 설정</div>
+              <div class="split-seg" id="splitSeg"></div>
+              <div class="cch-msg" id="splitMsg">한 번에 다 사지 않는다. 나눠 담을 비율을 고르세요.</div>
+            </div>
+
             <!-- 관문 4: 리스크/보상 검증 (미네비니·오닐·리버모어) -->
             <div class="cch cch4">
               <div class="cch-h"><span class="cch-n">4</span> 리스크 / 보상 검증 <span style="font-size:10px;font-weight:600;color:var(--sub);margin-left:4px">거장의 규칙</span></div>
@@ -439,6 +467,11 @@
               </div>
               <div id="tfList"></div>
               <div class="tf-note" id="tfNote">추세가 꺾였는가, 계획대로 파는가. 충동적 손절/익절이 아닌지 확인하는 용도.</div>
+            </div>
+            <div class="cch cch6" style="margin-top:10px">
+              <div class="cch-h">분할매도 비율 설정</div>
+              <div class="split-seg" id="splitSegSell"></div>
+              <div class="cch-msg" id="splitMsgSell">한 번에 다 팔지 않는다. 나눠 팔 비율을 고르세요.</div>
             </div>
           </div>
         </div>
@@ -628,6 +661,44 @@ const EMO_FLAGS = [
   { k: 'fomo',    t: '조급함·FOMO', d: '"지금 안 사면 놓친다"는 불안이 근거보다 앞서는가.' },
 ];
 
+/* 관문 5: 차트 보조지표 신호 (HTS 지표 기반) — 매수/매도 별도 */
+const IND_BUY = [
+  { k: 'ma',    t: '이동평균 정배열', tag: '이평', d: '5>20>60일선 정배열, 주가가 이평 위. 단기선이 장기선 위로.' },
+  { k: 'macd',  t: 'MACD 골든크로스', tag: 'MACD', d: 'MACD선이 시그널선을 상향 돌파. OSC(막대)가 0선 위로 전환.' },
+  { k: 'dmi',   t: 'DMI +DI 우위·ADX 상승', tag: 'DMI', d: '+DI가 −DI 위, ADX 상승 = 추세 강화 국면.' },
+  { k: 'rsi',   t: 'RSI 50 상향 (과열 아님)', tag: 'RSI', d: 'RSI가 50 위로 돌파하되 70 미만. 상승 힘 있고 과열은 아님.' },
+  { k: 'bb',    t: '볼린저 중심선 지지·상단 진행', tag: 'BB', d: '중심선(20일) 지지받고 상단밴드 향해 확장. 하단 이탈 아님.' },
+  { k: 'vol',   t: '거래량 증가 동반', tag: '거래량', d: '상승에 거래량 실림. 20일 평균 대비 증가.' },
+  { k: 'supply',t: '수급 우호 (기관·외인 순매수)', tag: '수급', d: '기관·외국인 순매수 유입. 개인 홀로 밀어올리는 자리 아님.' },
+  { k: 'psych', t: '심리도 과열 아님', tag: '심리도', d: '투자심리선이 75% 미만. 단기 과열 봉우리가 아님.' },
+];
+const IND_SELL = [
+  { k: 'ma',    t: '이동평균 데드크로스·이탈', tag: '이평', d: '5<20 데드크로스 또는 20일선 이탈. 정배열 붕괴.' },
+  { k: 'macd',  t: 'MACD 데드크로스', tag: 'MACD', d: 'MACD선이 시그널선 하향 돌파. OSC 0선 아래로.' },
+  { k: 'dmi',   t: 'DMI −DI 우위 전환', tag: 'DMI', d: '−DI가 +DI 위로 = 하락 추세 우위.' },
+  { k: 'rsi',   t: 'RSI 과열·하향 반전', tag: 'RSI', d: 'RSI 70 이상 과열 후 꺾임, 또는 50 하향 이탈.' },
+  { k: 'bb',    t: '볼린저 상단 이탈·중심선 붕괴', tag: 'BB', d: '상단밴드 뚫고 급등 후 반락, 또는 중심선 하향 이탈.' },
+  { k: 'vol',   t: '고점 대량거래·거래량 감소', tag: '거래량', d: '고점에서 대량거래(분산), 또는 상승 거래량 위축.' },
+  { k: 'supply',t: '수급 악화 (기관·외인 순매도)', tag: '수급', d: '기관·외국인 순매도 전환. 매물 출회.' },
+  { k: 'psych', t: '심리도 과열 (75% 이상)', tag: '심리도', d: '투자심리선 75% 이상 과열 봉우리. 단기 정점 신호.' },
+];
+
+/* 관문 6: 분할매수/매도 비율 프리셋 (전문가 권장) */
+const SPLIT_BUY = [
+  { k: '3-3-4', t: '3 : 3 : 4', d: '표준 3분할. 시험매수 후 확인되면 비중 확대. 추세추종 정석.' },
+  { k: '4-3-3', t: '4 : 3 : 3', d: '확신형. 첫 진입 비중↑, 눌림마다 보강.' },
+  { k: '2-3-5', t: '2 : 3 : 5', d: '보수형. 소액 탐색 후 돌파 확인되면 크게. 변동성 클 때.' },
+  { k: '5-5',   t: '5 : 5', d: '2분할. 간결하게 두 번에 나눠 진입.' },
+  { k: 'full',  t: '일괄 100%', d: '한 번에 전량. 확신이 매우 강할 때만 — 원칙적으로 비권장.' },
+];
+const SPLIT_SELL = [
+  { k: '3-3-4', t: '3 : 3 : 4', d: '목표가 근접마다 분할 익절, 마지막 물량은 추세 끝까지.' },
+  { k: '5-3-2', t: '5 : 3 : 2', d: '1차 목표에서 절반 확보 후 나머지 추세 태우기.' },
+  { k: '5-5',   t: '5 : 5', d: '목표가·손절 두 지점에서 절반씩.' },
+  { k: 'trail', t: '전량 트레일링', d: '분할 없이 트레일링 스톱에 맡겨 추세 끝까지 홀딩.' },
+  { k: 'full',  t: '일괄 100%', d: '한 번에 전량 청산. 손절·급락 대응 시.' },
+];
+
 let trades = [];          // 최신순
 let prices = {};          // { 종목명: 현재가, __cash: 현금 }
 let assetHist = {};       // { 'YYYY-MM-DD': { t:총자산, s:주식, c:현금 } }
@@ -637,6 +708,9 @@ let emotion = null;
 let tfChecks = {};        // 매도 체크리스트 상태
 let coachPhase = null;    // 관문1: 시장 국면
 let emoChecks = {};       // 관문2: 감정매매 플래그
+let indChecks = {};       // 관문5: 지표 신호 체크
+let splitPick = null;     // 관문6: 분할 비율 (매수)
+let splitPickSell = null; // 분할 비율 (매도)
 let selectedStock = null;
 let charts = {};
 let store = null;         // { add, remove, setPrice }
@@ -793,7 +867,7 @@ function sampleData() {
   let i = 0; const T = (o) => ({ id: 's' + (++i), createdAtMs: i, ...o });
   return [
     T({ date: d(7,28), name:'삼성전자', side:'sell', qty:30, price:91500, avgBuy:84300, fee:4900, pnl:(91500-84300)*30-4900, ret:8.3, emotion:'😌 냉정', planCheck:'keep', planStop:78000, planTarget:90000, reason:'목표가 도달, 분할 익절', review:'계획대로 매도. 원칙을 지킨 매매.' }),
-    T({ date: d(7,22), name:'NAVER', side:'buy', qty:15, price:188000, phase:'trend', stop:172000, breakeven:190000, trail:8, timecut:30, target:215000, weight:12, cutsSet:true, emotion:'💪 확신', reason:'커머스 실적 개선 + AI 모멘텀. 정배열 신고가 돌파.' }),
+    T({ date: d(7,22), name:'NAVER', side:'buy', qty:15, price:188000, phase:'trend', stop:172000, breakeven:190000, trail:8, timecut:30, target:215000, weight:12, cutsSet:true, indicators:['ma','macd','dmi','rsi','vol','supply'], indScore:6, split:'3-3-4', emotion:'💪 확신', reason:'커머스 실적 개선 + AI 모멘텀. 정배열 신고가 돌파.' }),
     T({ date: d(7,21), name:'에코프로', side:'sell', qty:5, price:98200, avgBuy:112400, fee:900, pnl:(98200-112400)*5-900, ret:-12.7, emotion:'⚡ 충동', planCheck:'break', planStop:105000, reason:'급등 따라잡기 실패, 손절', review:'손절선 -6.6%를 지나쳐 -12.7%에 매도. 계획 이탈.' }),
     T({ date: d(7,15), name:'삼성전자', side:'buy', qty:30, price:86300, stop:80000, target:95000, emotion:'😌 냉정', reason:'실적 발표 후 조정 구간 분할매수 2차' }),
     T({ date: d(7,8), name:'기아', side:'buy', qty:20, price:112500, phase:'rest', stop:104000, target:128000, weight:8, cutsSet:false, emotion:'😌 냉정', reason:'PBR 저평가 + 주주환원 확대 (휴식기 진입 — 본전/트레일/타임컷 미설정)' }),
@@ -853,8 +927,8 @@ function setSide(v) {
   $('rowFee').style.display = v === 'sell' ? '' : 'none';
   $('coachWrap').style.display = v === 'buy' ? '' : 'none';   // 코치는 매수 시
   $('tfWrap').style.display = v === 'sell' ? '' : 'none';     // 체크리스트는 매도 시
-  if (v === 'buy') { coachPhase = null; emoChecks = {}; renderCoach(); runCoach(); }
-  else { tfChecks = {}; renderTF(); }
+  if (v === 'buy') { coachPhase = null; emoChecks = {}; indChecks = {}; splitPick = null; renderCoach(); runCoach(); }
+  else { tfChecks = {}; splitPickSell = null; renderTF(); renderSplitSell(); }
   suggestAvg(); updatePreview();
 }
 $('segBuy').onclick  = () => setSide('buy');
@@ -876,9 +950,33 @@ function renderCoach() {
   $('emoFlags').querySelectorAll('input').forEach(inp => {
     inp.onchange = () => { emoChecks[inp.dataset.k] = inp.checked; runCoach(); };
   });
+  /* 관문5: 차트 지표 */
+  $('indList').innerHTML = IND_BUY.map(f => `
+    <label class="ind-item">
+      <input type="checkbox" data-k="${f.k}" ${indChecks[f.k] ? 'checked' : ''}>
+      <span class="tx"><b>${f.t}<em>${f.tag}</em></b><small>${f.d}</small></span>
+    </label>`).join('');
+  $('indList').querySelectorAll('input').forEach(inp => {
+    inp.onchange = () => { indChecks[inp.dataset.k] = inp.checked; runCoach(); };
+  });
+  /* 관문6: 분할매수 비율 */
+  $('splitSeg').innerHTML = SPLIT_BUY.map(s =>
+    `<button type="button" data-k="${s.k}" class="${splitPick === s.k ? 'sel' : ''}">${s.t}<small>${s.d.slice(0, 14)}…</small></button>`).join('');
+  $('splitSeg').querySelectorAll('button').forEach(b => {
+    b.onclick = () => { splitPick = splitPick === b.dataset.k ? null : b.dataset.k; renderCoach(); runCoach(); };
+  });
 }
 
-/* 코치 종합 판정 — 세 관문을 평가해 메시지·경고·컷 누락 표시 */
+/* 매도 분할 비율 렌더 */
+function renderSplitSell() {
+  $('splitSegSell').innerHTML = SPLIT_SELL.map(s =>
+    `<button type="button" data-k="${s.k}" class="${splitPickSell === s.k ? 'sel' : ''}">${s.t}<small>${s.d.slice(0, 14)}…</small></button>`).join('');
+  $('splitSegSell').querySelectorAll('button').forEach(b => {
+    b.onclick = () => { splitPickSell = splitPickSell === b.dataset.k ? null : b.dataset.k; renderSplitSell(); };
+  });
+}
+
+/* 코치 종합 판정 */
 function runCoach() {
   const price = +$('fPrice').value || 0;
   const name = $('fName').value.trim();
@@ -931,6 +1029,23 @@ function runCoach() {
   /* 자금비중 과다 경고 */
   const w = +$('fWeight').value || 0;
   if (w > 30) { $('cutMsg').textContent += ` (자금비중 ${w}%는 과도 — 한 종목에 몰빵은 추세추종 원칙 위반)`; }
+
+  /* ── 관문5: 차트 지표 점수 ── */
+  const indN = IND_BUY.filter(f => indChecks[f.k]).length;
+  const indEl = $('indScore');
+  indEl.textContent = `${indN} / 8`;
+  indEl.className = 'tf-score' + (indN >= 6 ? ' good' : indN >= 3 ? ' mid' : '');
+  const im = $('indMsg');
+  if (indN === 0) { im.textContent = 'HTS 보조지표를 보고 해당하는 신호에 체크하세요.'; im.className = 'cch-msg'; }
+  else if (indN >= 6) { im.textContent = `✅ ${indN}/8 지표 정렬 — 여러 지표가 한 방향을 가리킨다. 신뢰도 높은 자리.`; im.className = 'cch-msg good'; }
+  else if (indN >= 3) { im.textContent = `⏳ ${indN}/8 — 일부 지표만 정렬. 확인이 더 필요하다. 서두르지 마라.`; im.className = 'cch-msg caution'; }
+  else { im.textContent = `⚠ ${indN}/8 — 지표 근거가 약하다. 왜 사는지 다시 점검하라.`; im.className = 'cch-msg warn'; }
+
+  /* ── 관문6: 분할매수 비율 ── */
+  const sm = $('splitMsg');
+  if (!splitPick) { sm.textContent = '한 번에 다 사지 않는다. 나눠 담을 비율을 고르세요.'; sm.className = 'cch-msg'; }
+  else if (splitPick === 'full') { sm.textContent = '⚠ 일괄 100% — 분할의 이점(평단 관리·리스크 분산)을 포기한다. 확신이 매우 강할 때만.'; sm.className = 'cch-msg warn'; }
+  else { const sp = SPLIT_BUY.find(s => s.k === splitPick); sm.textContent = `✅ ${sp.t} 분할 — ${sp.d}`; sm.className = 'cch-msg good'; }
 
   /* ── 관문4: 리스크/보상 검증 (미네비니·오닐·리버모어) ── */
   const stop = +$('fStop').value || 0, target = +$('fTarget').value || 0;
@@ -1003,16 +1118,18 @@ function runCoach() {
     vt.textContent = rrHardBlock && !(coachPhase === 'down' || flags.length > 0 || autoWarn)
       ? '평단 아래 추가매수(물타기)다. 리버모어의 제1금기 — 지는 포지션에 더하지 마라.'
       : '지금은 들어갈 자리가 아니다. 국면·감정 신호가 위험을 가리키고 있다. 기록은 남기되, 실제 매수는 다시 생각하라.';
-  } else if (missing.length > 0 || coachPhase === 'rest' || rrCaution) {
+  } else if (missing.length > 0 || coachPhase === 'rest' || rrCaution || indN < 3) {
     v.className = 'verdict caution'; vb.textContent = '조건부\n주의';
     vt.textContent = rrCaution
       ? '방향은 맞지만 리스크/보상이 거장 기준에 미달한다. 손실은 2% 이내로, 손익비는 2:1 이상으로 다듬어라.'
       : (missing.length > 0
         ? '방향은 나쁘지 않지만 4대 컷이 덜 채워졌다. 나갈 문을 먼저 세팅하고 진입하라.'
-        : '휴식기 진입이다. 돌파를 확인하고 들어가면 승률이 오른다.');
+        : (indN < 3
+          ? '차트 지표 근거가 약하다(3개 미만). 여러 지표가 한 방향을 가리킬 때 진입 확률이 높다.'
+          : '휴식기 진입이다. 돌파를 확인하고 들어가면 승률이 오른다.'));
   } else {
     v.className = 'verdict pass'; vb.textContent = '진입\n승인';
-    vt.textContent = '추세장 · 감정 없음 · 4대 컷 완비 · 리스크/보상 통과. 거장의 규율을 갖춘 매수다. 계획대로 실행하라.';
+    vt.textContent = `추세장 · 감정 없음 · 4대 컷 완비 · 리스크/보상 통과 · 지표 ${indN}/8 정렬. 거장의 규율을 갖춘 매수다. 계획대로 실행하라.`;
   }
 }
 
@@ -1024,6 +1141,8 @@ function collectCoach() {
     emoFlags: EMO_FLAGS.filter(f => emoChecks[f.k]).map(f => f.k),
     stop: g('fStop'), breakeven: g('fBreakeven'), trail: g('fTrail'),
     timecut: g('fTimecut'), target: g('fTarget'), weight: g('fWeight'),
+    indicators: IND_BUY.filter(f => indChecks[f.k]).map(f => f.k),
+    split: splitPick || '',
   };
   return c;
 }
@@ -1137,12 +1256,15 @@ $('btnSave').onclick = async () => {
     if (c.trail > 0) rec.trail = c.trail;
     if (c.timecut > 0) rec.timecut = c.timecut;
     if (c.weight > 0) rec.weight = c.weight;
+    if (c.indicators && c.indicators.length) { rec.indicators = c.indicators; rec.indScore = c.indicators.length; }
+    if (c.split) rec.split = c.split;
     /* 4대 컷 완비 여부 */
     rec.cutsSet = (c.stop > 0 && c.breakeven > 0 && c.trail > 0 && c.timecut > 0 && c.weight > 0);
   }
   if (side === 'sell') {
     const tfKeys = tfItems().filter(it => tfChecks[it.k]).map(it => it.k);
     if (tfKeys.length) { rec.tf = tfKeys; rec.tfScore = tfKeys.length; rec.tfTotal = tfItems().length; }
+    if (splitPickSell) rec.split = splitPickSell;
     const avg = +$('fAvg').value || 0, fee = +$('fFee').value || 0;
     rec.avgBuy = avg; rec.fee = fee;
     rec.pnl = (price - avg) * qty - fee;
@@ -1158,8 +1280,8 @@ $('btnSave').onclick = async () => {
     ['fName','fQty','fPrice','fAvg','fFee','fReason','fReview','fStop','fTarget','fBreakeven','fTrail','fTimecut','fWeight'].forEach(id => $(id).value = '');
     $('fCredit').checked = false;
     emotion = null; [...$('emos').children].forEach(c => c.classList.remove('sel'));
-    tfChecks = {}; coachPhase = null; emoChecks = {};
-    if (side === 'buy') { renderCoach(); runCoach(); } else renderTF();
+    tfChecks = {}; coachPhase = null; emoChecks = {}; indChecks = {}; splitPick = null; splitPickSell = null;
+    if (side === 'buy') { renderCoach(); runCoach(); } else { renderTF(); renderSplitSell(); }
     updatePreview();
     btn.textContent = '저장 완료 ✓';
     setTimeout(() => { btn.textContent = '기록 저장'; btn.disabled = false; }, 900);
@@ -1249,6 +1371,9 @@ function tradeRow(t) {
   const PH = { trend: ['📈 추세장','k'], rest: ['😴 휴식기','e'], down: ['📉 하락장','b'] };
   const phaseBadge = (!isSell && t.phase && PH[t.phase]) ? `<span class="pc ${PH[t.phase][1]}">${PH[t.phase][0]}</span>` : '';
   const cutsBadge = (!isSell && t.cutsSet) ? `<span class="pc k">4대컷✓</span>` : '';
+  const indBadge = t.indScore ? `<span class="pc ${t.indScore >= 6 ? 'k' : t.indScore >= 3 ? 'e' : 'b'}">지표 ${t.indScore}/8</span>` : '';
+  const SPLIT_ALL = { '3-3-4':'3:3:4','4-3-3':'4:3:3','2-3-5':'2:3:5','5-3-2':'5:3:2','5-5':'5:5','full':'일괄','trail':'트레일링' };
+  const splitBadge = t.split ? `<span class="pc c">분할 ${SPLIT_ALL[t.split] || t.split}</span>` : '';
   const emoBadge = (t.emoFlags && t.emoFlags.length) ? `<span class="pc b">⚠ 감정</span>` : '';
   const tfFlags = (t.tf && t.tf.length)
     ? `<div class="t-flags">${t.tf.map(k => { const it = TF_SELL.find(x => x.k === k); return it ? `<span class="fl">✓ ${it.t}</span>` : ''; }).join('')}</div>` : '';
@@ -1263,7 +1388,7 @@ function tradeRow(t) {
     <div class="t-side ${isSell ? 's' : 'b'}">${isSell ? '매도' : '매수'}</div>
     <div class="t-body">
       <div class="t-top">
-        <span class="t-name">${esc(t.name)}${credit}${badge}${tfBadge}${phaseBadge}${cutsBadge}${emoBadge}${t.emotion ? `<span class="emo">${t.emotion}</span>` : ''}</span>
+        <span class="t-name">${esc(t.name)}${credit}${badge}${tfBadge}${phaseBadge}${cutsBadge}${indBadge}${splitBadge}${emoBadge}${t.emotion ? `<span class="emo">${t.emotion}</span>` : ''}</span>
         ${pnlHtml}
       </div>
       <div class="t-meta">${t.date} · <span class="num">${t.qty.toLocaleString()}주 × ${fmt(t.price)}</span>${plan}</div>
@@ -1631,7 +1756,8 @@ function dlCSV(name, rows) {
 }
 $('btnCsvT').onclick = () => {
   const PHN = { trend: '추세장', rest: '휴식기', down: '하락장' };
-  const head = ['날짜','종목명','구분','신용','수량','단가','매수평단','수수료','실현손익','수익률%','시장국면','손절컷','본전컷','트레일링%','타임컷일','목표가','손익비RR','자금비중%','4대컷완비','감정매매플래그','계획판정','매도점검','감정','매매이유','복기'];
+  const SPLIT_ALL = { '3-3-4':'3:3:4','4-3-3':'4:3:3','2-3-5':'2:3:5','5-3-2':'5:3:2','5-5':'5:5','full':'일괄','trail':'트레일링' };
+  const head = ['날짜','종목명','구분','신용','수량','단가','매수평단','수수료','실현손익','수익률%','시장국면','손절컷','본전컷','트레일링%','타임컷일','목표가','손익비RR','자금비중%','4대컷완비','지표점수','분할비율','감정매매플래그','계획판정','매도점검','감정','매매이유','복기'];
   const body = [...trades].sort((a, b) => a.date.localeCompare(b.date)).map(t => {
     const rr = (t.stop > 0 && t.target > 0 && t.price > t.stop && t.target > t.price)
       ? ((t.target - t.price) / (t.price - t.stop)).toFixed(1) + ':1' : '';
@@ -1641,6 +1767,7 @@ $('btnCsvT').onclick = () => {
     t.pnl != null ? Math.round(t.pnl) : '', typeof t.ret === 'number' ? t.ret.toFixed(2) : '',
     PHN[t.phase] || '', t.stop ?? '', t.breakeven ?? '', t.trail ?? '', t.timecut ?? '', t.target ?? '', rr, t.weight ?? '',
     t.cutsSet ? 'Y' : '',
+    t.indScore ? `${t.indScore}/8` : '', SPLIT_ALL[t.split] || t.split || '',
     (t.emoFlags || []).map(k => (EMO_FLAGS.find(f => f.k === k) || {}).t).filter(Boolean).join('·'),
     ({ keep: '준수', break: '이탈', early: '조기익절' })[t.planCheck] || '',
     t.tfScore ? `${t.tfScore}/${t.tfTotal || 4}` : '',
