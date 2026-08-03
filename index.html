@@ -291,12 +291,19 @@
   .pf-sum .row b{font-family:var(--mono);font-size:14.5px;color:var(--ink);font-weight:700}
   .pf-sum .row.big b{font-size:18px}
   .tbl-scroll{overflow-x:auto;margin:0 -18px;padding:0 18px}
-  table.pf{width:100%;border-collapse:collapse;min-width:620px}
+  table.pf{width:100%;border-collapse:collapse;min-width:680px}
   table.pf th{font-size:11.5px;font-weight:700;color:var(--sub);text-align:right;padding:8px 8px;border-bottom:1.5px solid var(--line-strong);white-space:nowrap}
   table.pf th:first-child,table.pf td:first-child{text-align:left;position:sticky;left:0;background:var(--surface)}
   table.pf td{padding:11px 8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);font-size:13.5px;font-weight:600;white-space:nowrap}
   table.pf td:first-child{font-family:var(--sans);font-weight:700;font-size:14px}
   table.pf td .w{display:block;font-size:11px;color:var(--sub);font-weight:600}
+  .sig{display:inline-block;font-family:var(--sans);font-size:11.5px;font-weight:700;border-radius:6px;padding:3px 8px;background:var(--bg);color:var(--ink);white-space:nowrap;line-height:1.3}
+  .sig.up{background:#EBF9F0;color:#15803D}
+  .sig.down{background:#FEF1F0;color:#D92D20}
+  .sig-none{font-family:var(--sans);font-size:11px;color:var(--line-strong);font-weight:600}
+  .pyr{display:inline-block;font-family:var(--sans);font-size:10.5px;font-weight:700;border-radius:5px;padding:1px 6px;margin-left:6px;white-space:nowrap}
+  .pyr.up{background:#EBF9F0;color:#15803D}
+  .pyr.down{background:#FEF1F0;color:#D92D20}
   table.pf tr:last-child td{border-bottom:0}
   .px-in{width:86px;border:1px solid var(--line-strong);border-radius:8px;padding:6px 8px;text-align:right;font-family:var(--mono);font-size:13px;background:#fff;outline:none}
   .px-in:focus{border-color:var(--ink)}
@@ -389,9 +396,6 @@
           <div class="amount-preview"><span id="pvLabel">거래금액</span><b class="num" id="pvValue">0원</b></div>
           <div class="fld full"><label>매매 이유</label><textarea id="fReason" placeholder="왜 이 매매를 하는가? 근거를 남기세요."></textarea></div>
           <div class="fld full"><label>복기 · 교훈</label><textarea id="fReview" placeholder="이 매매에서 배운 점 (나중에 채워도 됩니다)"></textarea></div>
-          <div class="fld full"><label>매매 당시 감정</label>
-            <div class="emos" id="emos"></div>
-          </div>
 
           <!-- 🎯 매매 코치 (매수 시) -->
           <div class="fld full" id="coachWrap">
@@ -408,9 +412,12 @@
               <div class="cch-msg" id="phaseMsg">국면을 선택하면 코치가 판단해줍니다.</div>
             </div>
 
-            <!-- 관문 2: 감정/물타기 감지 -->
+            <!-- 관문 2: 감정·심리 점검 (기분 + 위험 플래그 통합) -->
             <div class="cch cch2">
-              <div class="cch-h"><span class="cch-n">2</span> 감정·물타기 매매 요소 점검</div>
+              <div class="cch-h"><span class="cch-n">2</span> 감정·심리 점검</div>
+              <div style="font-size:11.5px;font-weight:700;color:var(--sub);margin-bottom:7px">지금 나의 상태</div>
+              <div class="emos" id="emos" style="margin-bottom:12px"></div>
+              <div style="font-size:11.5px;font-weight:700;color:var(--sub);margin-bottom:2px">위험 신호 자가진단</div>
               <div id="emoFlags"></div>
               <div class="cch-msg" id="emoMsg"></div>
             </div>
@@ -467,6 +474,10 @@
               </div>
               <div id="tfList"></div>
               <div class="tf-note" id="tfNote">추세가 꺾였는가, 계획대로 파는가. 충동적 손절/익절이 아닌지 확인하는 용도.</div>
+            </div>
+            <div class="cch" style="margin-top:10px">
+              <div class="cch-h">매도 당시 감정</div>
+              <div class="emos" id="emosSell"></div>
             </div>
             <div class="cch cch6" style="margin-top:10px">
               <div class="cch-h">분할매도 비율 설정</div>
@@ -537,12 +548,12 @@
         <div class="tbl-scroll">
           <table class="pf">
             <thead><tr>
-              <th>종목</th><th>비중</th><th>보유수량</th><th>평단가</th><th>현재가 ✎</th><th>매수금액</th><th>평가금액</th><th>평가손익</th>
+              <th>종목</th><th>비중</th><th>보유수량</th><th>평단가</th><th>현재가 ✎</th><th>평가손익</th><th>신호 · 현재가 대비</th>
             </tr></thead>
             <tbody id="pfBody"></tbody>
           </table>
         </div>
-        <div class="px-hint">✎ <b>현재가는 직접 입력</b>하는 방식입니다. 입력하면 저장되어 다른 기기에도 동기화되고, 평가금액·손익·비중이 즉시 계산됩니다.</div>
+        <div class="px-hint">✎ <b>현재가는 직접 입력</b>합니다. <b>신호</b> 열은 매수 시 설정한 4대 컷(손절·본전·트레일링·타임)과 목표가에 현재가가 얼마나 근접했는지 자동 표시합니다. 🔴 손절 근접 · 🟢 목표 근접 · 🔵 본전 도달 · ⏰ 타임컷.</div>
       </div>
       <div class="card" id="pfCard4">
         <h2>입출금 내역 — 입금(납입) · 인출(수익 실현) 기록</h2>
@@ -683,15 +694,28 @@ const IND_SELL = [
   { k: 'psych', t: '심리도 과열 (75% 이상)', tag: '심리도', d: '투자심리선 75% 이상 과열 봉우리. 단기 정점 신호.' },
 ];
 
-/* 관문 6: 분할매수/매도 비율 프리셋 (전문가 권장) */
+/* 관문 6: 분할매수/매도 비율 프리셋. steps = 단계별 [비율%, 조건]
+   추세추종 원칙: 오르는 종목을 나눠 담고(피라미딩), 추세 꺾임에 나눠 판다 */
 const SPLIT_BUY = [
+  { k: 'tf-break', t: '추세추종 · 돌파 불타기', d: '돌파 시험 → 지지 확인 → 신고가 재돌파로 비중 확대 (이기는 자리에 더한다).',
+    steps: [
+      { pct: 40, cond: '저항 돌파 + 거래량 동반 — 1차 진입' },
+      { pct: 30, cond: '돌파가 지지로 전환(눌림 지지 확인) — 2차 불타기' },
+      { pct: 30, cond: '신고가 재돌파 / 추세 가속 — 3차 불타기' },
+    ] },
   { k: '3-3-4', t: '3 : 3 : 4', d: '표준 3분할. 시험매수 후 확인되면 비중 확대. 추세추종 정석.' },
-  { k: '4-3-3', t: '4 : 3 : 3', d: '확신형. 첫 진입 비중↑, 눌림마다 보강.' },
+  { k: '4-3-3', t: '4 : 3 : 3', d: '확신형. 첫 진입 비중↑, 돌파 확인마다 보강.' },
   { k: '2-3-5', t: '2 : 3 : 5', d: '보수형. 소액 탐색 후 돌파 확인되면 크게. 변동성 클 때.' },
   { k: '5-5',   t: '5 : 5', d: '2분할. 간결하게 두 번에 나눠 진입.' },
   { k: 'full',  t: '일괄 100%', d: '한 번에 전량. 확신이 매우 강할 때만 — 원칙적으로 비권장.' },
 ];
 const SPLIT_SELL = [
+  { k: 'tf-exit', t: '추세추종 · 추세 꺾임 청산', d: '이동평균 이탈 단계마다 분할 청산. 추세가 살아있는 한 홀딩.',
+    steps: [
+      { pct: 30, cond: '5일선 이탈 / 단기 모멘텀 둔화 — 1차 축소' },
+      { pct: 30, cond: '20일선 하향 이탈(추세 훼손 시작) — 2차 축소' },
+      { pct: 40, cond: '60일선 이탈 / 데드크로스(추세 종료) — 전량 청산' },
+    ] },
   { k: '3-3-4', t: '3 : 3 : 4', d: '목표가 근접마다 분할 익절, 마지막 물량은 추세 끝까지.' },
   { k: '5-3-2', t: '5 : 3 : 2', d: '1차 목표에서 절반 확보 후 나머지 추세 태우기.' },
   { k: '5-5',   t: '5 : 5', d: '목표가·손절 두 지점에서 절반씩.' },
@@ -867,7 +891,7 @@ function sampleData() {
   let i = 0; const T = (o) => ({ id: 's' + (++i), createdAtMs: i, ...o });
   return [
     T({ date: d(7,28), name:'삼성전자', side:'sell', qty:30, price:91500, avgBuy:84300, fee:4900, pnl:(91500-84300)*30-4900, ret:8.3, emotion:'😌 냉정', planCheck:'keep', planStop:78000, planTarget:90000, reason:'목표가 도달, 분할 익절', review:'계획대로 매도. 원칙을 지킨 매매.' }),
-    T({ date: d(7,22), name:'NAVER', side:'buy', qty:15, price:188000, phase:'trend', stop:172000, breakeven:190000, trail:8, timecut:30, target:215000, weight:12, cutsSet:true, indicators:['ma','macd','dmi','rsi','vol','supply'], indScore:6, split:'3-3-4', emotion:'💪 확신', reason:'커머스 실적 개선 + AI 모멘텀. 정배열 신고가 돌파.' }),
+    T({ date: d(7,22), name:'NAVER', side:'buy', qty:15, price:188000, phase:'trend', stop:172000, breakeven:190000, trail:8, timecut:30, target:215000, weight:12, cutsSet:true, indicators:['ma','macd','dmi','rsi','vol','supply'], indScore:6, split:'tf-break', emotion:'💪 확신', reason:'커머스 실적 개선 + AI 모멘텀. 정배열 신고가 돌파.' }),
     T({ date: d(7,21), name:'에코프로', side:'sell', qty:5, price:98200, avgBuy:112400, fee:900, pnl:(98200-112400)*5-900, ret:-12.7, emotion:'⚡ 충동', planCheck:'break', planStop:105000, reason:'급등 따라잡기 실패, 손절', review:'손절선 -6.6%를 지나쳐 -12.7%에 매도. 계획 이탈.' }),
     T({ date: d(7,15), name:'삼성전자', side:'buy', qty:30, price:86300, stop:80000, target:95000, emotion:'😌 냉정', reason:'실적 발표 후 조정 구간 분할매수 2차' }),
     T({ date: d(7,8), name:'기아', side:'buy', qty:20, price:112500, phase:'rest', stop:104000, target:128000, weight:8, cutsSet:false, emotion:'😌 냉정', reason:'PBR 저평가 + 주주환원 확대 (휴식기 진입 — 본전/트레일/타임컷 미설정)' }),
@@ -888,17 +912,28 @@ function holdings() {
     (a.date + String(a.createdAtMs||0).padStart(15,'0'))
       .localeCompare(b.date + String(b.createdAtMs||0).padStart(15,'0')))
     .forEach(t => {
-      const s = h[t.name] ??= { qty: 0, avg: 0, pnl: 0, cnt: 0, credQty: 0, credCost: 0 };
+      const s = h[t.name] ??= { qty: 0, avg: 0, pnl: 0, cnt: 0, credQty: 0, credCost: 0, plan: null, pyramid: 0, waterAdd: 0 };
       s.cnt++;
       if (t.side === 'buy') {
+        /* 피라미딩/물타기 추적: 이미 보유 중인데 추가 매수한 경우 방향 판정 */
+        if (s.qty > 0 && s.avg > 0) {
+          if (t.price >= s.avg) s.pyramid++;   // 평단 위 추가매수 = 불타기(피라미딩)
+          else s.waterAdd++;                    // 평단 아래 추가매수 = 물타기
+        }
         const cost = s.qty * s.avg + t.qty * t.price;
         s.qty += t.qty;
         s.avg = s.qty > 0 ? cost / s.qty : 0;
+        /* 최신 매수의 계획(4대 컷·목표가) 보관 — 신호 계산에 사용 */
+        if (t.stop || t.target || t.breakeven || t.trail || t.timecut) {
+          s.plan = { stop: t.stop || 0, target: t.target || 0, breakeven: t.breakeven || 0,
+                     trail: t.trail || 0, timecut: t.timecut || 0, buyDate: t.date };
+        }
         if (t.credit) {                       // 신용 매수 → 융자(부채) 발생
           s.credQty += t.qty;
           s.credCost += t.qty * t.price;
         }
       } else {
+        s.pyramid = 0; s.waterAdd = 0;        // 매도로 포지션 정리되면 카운트 리셋
         const before = s.qty;
         s.qty = Math.max(0, s.qty - t.qty);
         s.pnl += t.pnl || 0;
@@ -917,7 +952,53 @@ function holdings() {
   return h;
 }
 
-/* ── 폼: 매수/매도 전환 ── */
+/* ── 보유 신호: 현재가 vs 4대 컷·목표가 근접도 계산 ──
+   반환: { icon, label, cls, pct } 중 가장 임박한 것 (없으면 null) */
+function positionSignal(plan, cur, avg) {
+  if (!plan || !(cur > 0)) return null;
+  const signals = [];
+  const gap = (from, to) => ((to - from) / from) * 100; // from→to 변화율(%)
+
+  // 손절 근접 (현재가가 손절가에 가까워질수록 위험)
+  if (plan.stop > 0) {
+    const d = gap(plan.stop, cur); // 현재가가 손절가보다 몇 % 위인가
+    if (cur <= plan.stop) signals.push({ icon: '🔴', label: `손절가 도달 (${fmt(plan.stop)})`, cls: 'down', prio: 100, pct: 0 });
+    else if (d <= 3) signals.push({ icon: '🔴', label: `손절 임박 · 현재가 −${d.toFixed(1)}% 남음`, cls: 'down', prio: 90, pct: d });
+  }
+  // 목표 근접
+  if (plan.target > 0) {
+    const d = gap(cur, plan.target); // 목표까지 몇 % 더
+    if (cur >= plan.target) signals.push({ icon: '🟢', label: `목표가 달성 (${fmt(plan.target)})`, cls: 'up', prio: 95, pct: 0 });
+    else if (d <= 5) signals.push({ icon: '🟢', label: `목표 근접 · +${d.toFixed(1)}% 남음`, cls: 'up', prio: 80, pct: d });
+  }
+  // 본전 도달 (본전컷 발동가)
+  if (plan.breakeven > 0 && cur >= plan.breakeven) {
+    signals.push({ icon: '🔵', label: `본전 방어선 도달 (${fmt(plan.breakeven)})`, cls: '', prio: 60, pct: 0 });
+  }
+  // 트레일링 강화: 현재가 기준 트레일링 스톱 가격 계산 + 수익 확보/손실 구간 판정
+  if (plan.trail > 0 && avg > 0 && cur > 0) {
+    const trailStop = Math.round(cur * (1 - plan.trail / 100)); // 여기서 trail% 하락 시 청산선
+    const profitPct = ((cur - avg) / avg) * 100;                 // 현재 수익률
+    if (cur > avg) {
+      // 수익 중 — 트레일링 스톱이 평단 위면 이익 확보 상태
+      if (trailStop >= avg) {
+        signals.push({ icon: '🛡️', label: `트레일링 ${fmt(trailStop)} — 이익 확보 (${profitPct >= 0 ? '+' : ''}${profitPct.toFixed(1)}%)`, cls: 'up', prio: 45, pct: 0 });
+      } else {
+        signals.push({ icon: '📈', label: `트레일링 ${fmt(trailStop)} — 아직 평단 아래, 더 상승 필요`, cls: 'up', prio: 35, pct: 0 });
+      }
+    }
+  }
+  // 타임컷: 매수일로부터 경과일 계산
+  if (plan.timecut > 0 && plan.buyDate) {
+    const days = Math.round((Date.now() - new Date(plan.buyDate)) / 86400000);
+    const left = plan.timecut - days;
+    if (left <= 0) signals.push({ icon: '⏰', label: `타임컷 경과 (${days}일 / ${plan.timecut}일)`, cls: 'down', prio: 70, pct: 0 });
+    else if (left <= 3) signals.push({ icon: '⏰', label: `타임컷 ${left}일 남음`, cls: '', prio: 50, pct: 0 });
+  }
+  if (!signals.length) return null;
+  signals.sort((a, b) => b.prio - a.prio);
+  return signals[0];
+}
 function setSide(v) {
   side = v;
   $('segBuy').className  = v === 'buy'  ? 'on-buy'  : '';
@@ -960,8 +1041,10 @@ function renderCoach() {
     inp.onchange = () => { indChecks[inp.dataset.k] = inp.checked; runCoach(); };
   });
   /* 관문6: 분할매수 비율 */
-  $('splitSeg').innerHTML = SPLIT_BUY.map(s =>
-    `<button type="button" data-k="${s.k}" class="${splitPick === s.k ? 'sel' : ''}">${s.t}<small>${s.d.slice(0, 14)}…</small></button>`).join('');
+  $('splitSeg').innerHTML = SPLIT_BUY.map(s => {
+    const sub = s.steps ? s.steps.map(x => x.pct).join('·') + '%' : s.d.slice(0, 14) + '…';
+    return `<button type="button" data-k="${s.k}" class="${splitPick === s.k ? 'sel' : ''}">${s.t}<small>${sub}</small></button>`;
+  }).join('');
   $('splitSeg').querySelectorAll('button').forEach(b => {
     b.onclick = () => { splitPick = splitPick === b.dataset.k ? null : b.dataset.k; renderCoach(); runCoach(); };
   });
@@ -969,11 +1052,27 @@ function renderCoach() {
 
 /* 매도 분할 비율 렌더 */
 function renderSplitSell() {
-  $('splitSegSell').innerHTML = SPLIT_SELL.map(s =>
-    `<button type="button" data-k="${s.k}" class="${splitPickSell === s.k ? 'sel' : ''}">${s.t}<small>${s.d.slice(0, 14)}…</small></button>`).join('');
+  $('splitSegSell').innerHTML = SPLIT_SELL.map(s => {
+    const sub = s.steps ? s.steps.map(x => x.pct).join('·') + '%' : s.d.slice(0, 14) + '…';
+    return `<button type="button" data-k="${s.k}" class="${splitPickSell === s.k ? 'sel' : ''}">${s.t}<small>${sub}</small></button>`;
+  }).join('');
   $('splitSegSell').querySelectorAll('button').forEach(b => {
     b.onclick = () => { splitPickSell = splitPickSell === b.dataset.k ? null : b.dataset.k; renderSplitSell(); };
   });
+  const sm = $('splitMsgSell');
+  if (!splitPickSell) { sm.innerHTML = '한 번에 다 팔지 않는다. 나눠 팔 비율을 고르세요.'; sm.className = 'cch-msg'; }
+  else if (splitPickSell === 'full') { sm.innerHTML = '⚠ 일괄 100% 청산 — 손절·급락 대응이 아니라면 분할이 낫다.'; sm.className = 'cch-msg warn'; }
+  else { const sp = SPLIT_SELL.find(s => s.k === splitPickSell); sm.innerHTML = splitStepsHTML(sp); sm.className = 'cch-msg good'; }
+}
+
+/* 분할 단계별 조건·비율을 HTML로 (steps 있으면 펼침, 없으면 한 줄) */
+function splitStepsHTML(sp) {
+  if (!sp.steps) return `✅ ${sp.t} 분할 — ${sp.d}`;
+  const head = `<b style="color:var(--ink)">📋 ${sp.t}</b><br>`;
+  const rows = sp.steps.map((st, i) =>
+    `<span style="display:inline-block;min-width:52px;font-family:var(--mono);font-weight:800;color:var(--profit)">${st.pct}%</span> ${i + 1}차 · ${st.cond}`
+  ).join('<br>');
+  return head + rows;
 }
 
 /* 코치 종합 판정 */
@@ -1043,9 +1142,9 @@ function runCoach() {
 
   /* ── 관문6: 분할매수 비율 ── */
   const sm = $('splitMsg');
-  if (!splitPick) { sm.textContent = '한 번에 다 사지 않는다. 나눠 담을 비율을 고르세요.'; sm.className = 'cch-msg'; }
-  else if (splitPick === 'full') { sm.textContent = '⚠ 일괄 100% — 분할의 이점(평단 관리·리스크 분산)을 포기한다. 확신이 매우 강할 때만.'; sm.className = 'cch-msg warn'; }
-  else { const sp = SPLIT_BUY.find(s => s.k === splitPick); sm.textContent = `✅ ${sp.t} 분할 — ${sp.d}`; sm.className = 'cch-msg good'; }
+  if (!splitPick) { sm.innerHTML = '한 번에 다 사지 않는다. 나눠 담을 비율을 고르세요.'; sm.className = 'cch-msg'; }
+  else if (splitPick === 'full') { sm.innerHTML = '⚠ 일괄 100% — 분할의 이점(평단 관리·리스크 분산)을 포기한다. 확신이 매우 강할 때만.'; sm.className = 'cch-msg warn'; }
+  else { const sp = SPLIT_BUY.find(s => s.k === splitPick); sm.innerHTML = splitStepsHTML(sp); sm.className = 'cch-msg good'; }
 
   /* ── 관문4: 리스크/보상 검증 (미네비니·오닐·리버모어) ── */
   const stop = +$('fStop').value || 0, target = +$('fTarget').value || 0;
@@ -1201,16 +1300,30 @@ function updatePreview() {
 ['fQty','fPrice','fAvg','fFee'].forEach(id => $(id).addEventListener('input', updatePreview));
 $('fName').addEventListener('change', () => { suggestAvg(); if (side === 'buy') runCoach(); });
 
-/* ── 감정 칩 ── */
-EMOTIONS.forEach(e => {
-  const b = document.createElement('button');
-  b.type = 'button'; b.textContent = e;
-  b.onclick = () => {
-    emotion = (emotion === e) ? null : e;
-    [...$('emos').children].forEach(c => c.classList.toggle('sel', c.textContent === emotion));
-  };
-  $('emos').appendChild(b);
-});
+/* ── 감정 칩 (매수: emos / 매도: emosSell 공용) ── */
+function renderEmoChips() {
+  ['emos', 'emosSell'].forEach(cid => {
+    const box = $(cid); if (!box) return;
+    box.innerHTML = '';
+    EMOTIONS.forEach(e => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = e;
+      b.className = (emotion === e) ? 'sel' : '';
+      b.onclick = () => {
+        emotion = (emotion === e) ? null : e;
+        syncEmoChips();
+      };
+      box.appendChild(b);
+    });
+  });
+}
+function syncEmoChips() {
+  ['emos', 'emosSell'].forEach(cid => {
+    const box = $(cid); if (!box) return;
+    [...box.children].forEach(c => c.classList.toggle('sel', c.textContent === emotion));
+  });
+}
+renderEmoChips();
 
 /* ── ① 계획 매매 판정: 해당 종목의 최근 매수 계획과 매도가 비교 ── */
 function judgePlan(name, sellPrice, pnl) {
@@ -1279,7 +1392,7 @@ $('btnSave').onclick = async () => {
     await store.add(rec);
     ['fName','fQty','fPrice','fAvg','fFee','fReason','fReview','fStop','fTarget','fBreakeven','fTrail','fTimecut','fWeight'].forEach(id => $(id).value = '');
     $('fCredit').checked = false;
-    emotion = null; [...$('emos').children].forEach(c => c.classList.remove('sel'));
+    emotion = null; syncEmoChips();
     tfChecks = {}; coachPhase = null; emoChecks = {}; indChecks = {}; splitPick = null; splitPickSell = null;
     if (side === 'buy') { renderCoach(); runCoach(); } else { renderTF(); renderSplitSell(); }
     updatePreview();
@@ -1372,7 +1485,7 @@ function tradeRow(t) {
   const phaseBadge = (!isSell && t.phase && PH[t.phase]) ? `<span class="pc ${PH[t.phase][1]}">${PH[t.phase][0]}</span>` : '';
   const cutsBadge = (!isSell && t.cutsSet) ? `<span class="pc k">4대컷✓</span>` : '';
   const indBadge = t.indScore ? `<span class="pc ${t.indScore >= 6 ? 'k' : t.indScore >= 3 ? 'e' : 'b'}">지표 ${t.indScore}/8</span>` : '';
-  const SPLIT_ALL = { '3-3-4':'3:3:4','4-3-3':'4:3:3','2-3-5':'2:3:5','5-3-2':'5:3:2','5-5':'5:5','full':'일괄','trail':'트레일링' };
+  const SPLIT_ALL = { 'tf-break':'돌파 40·30·30','tf-exit':'꺾임 30·30·40','3-3-4':'3:3:4','4-3-3':'4:3:3','2-3-5':'2:3:5','5-3-2':'5:3:2','5-5':'5:5','full':'일괄','trail':'트레일링' };
   const splitBadge = t.split ? `<span class="pc c">분할 ${SPLIT_ALL[t.split] || t.split}</span>` : '';
   const emoBadge = (t.emoFlags && t.emoFlags.length) ? `<span class="pc b">⚠ 감정</span>` : '';
   const tfFlags = (t.tf && t.tf.length)
@@ -1433,7 +1546,7 @@ function renderPortfolio() {
       const cost = s.qty * s.avg;
       const ev = cur > 0 ? s.qty * cur : cost;   // 현재가 없으면 매수금액으로 집계
       return { name, qty: s.qty, avg: s.avg, cur, cost, ev,
-               pl: cur > 0 ? ev - cost : null };
+               pl: cur > 0 ? ev - cost : null, plan: s.plan, pyramid: s.pyramid || 0, waterAdd: s.waterAdd || 0 };
     })
     .sort((a, b) => b.ev - a.ev);
 
@@ -1558,21 +1671,26 @@ function renderPortfolio() {
     }
   });
 
-  /* 테이블 — 비중은 총자산(현금 포함) 기준 */
+  /* 테이블 — 비중은 총자산(현금 포함) 기준 + 4대컷·목표 신호 */
   $('pfBody').innerHTML = rows.map(r => {
     const w = totAsset > 0 ? (r.ev / totAsset * 100) : 0;
     const retStr = r.pl === null ? '' :
       `<span class="w ${clsOf(r.pl)}" style="font-weight:700">${(r.pl >= 0 ? '+' : '')}${(r.pl / r.cost * 100).toFixed(2)}%</span>`;
+    const sig = positionSignal(r.plan, r.cur, r.avg);
+    const sigStr = sig
+      ? `<span class="sig ${sig.cls}">${sig.icon} ${sig.label}</span>`
+      : (r.plan ? '<span class="sig-none">관리 중</span>' : '<span class="sig-none">계획 없음</span>');
+    const pyrBadge = r.pyramid > 0 ? `<span class="pyr up">🔥 불타기 ${r.pyramid}</span>` : '';
+    const watBadge = r.waterAdd > 0 ? `<span class="pyr down">💧 물타기 ${r.waterAdd}</span>` : '';
     return `<tr>
-      <td>${esc(r.name)}</td>
+      <td>${esc(r.name)}${pyrBadge}${watBadge}</td>
       <td>${w.toFixed(1)}%</td>
       <td>${r.qty.toLocaleString()}주</td>
       <td>${fmt(r.avg)}</td>
       <td><input class="px-in" type="number" inputmode="numeric" value="${r.cur || ''}" placeholder="입력"
             onchange="_setPx(this, '${esc(r.name).replace(/'/g, "\\'")}')"></td>
-      <td>${fmt(r.cost)}</td>
-      <td>${r.cur > 0 ? fmt(r.ev) : '—'}</td>
       <td class="${r.pl === null ? '' : clsOf(r.pl)}">${r.pl === null ? '—' : fmtSigned(r.pl)}${retStr}</td>
+      <td style="text-align:left">${sigStr}</td>
     </tr>`;
   }).join('');
 }
@@ -1756,7 +1874,7 @@ function dlCSV(name, rows) {
 }
 $('btnCsvT').onclick = () => {
   const PHN = { trend: '추세장', rest: '휴식기', down: '하락장' };
-  const SPLIT_ALL = { '3-3-4':'3:3:4','4-3-3':'4:3:3','2-3-5':'2:3:5','5-3-2':'5:3:2','5-5':'5:5','full':'일괄','trail':'트레일링' };
+  const SPLIT_ALL = { 'tf-break':'돌파 40·30·30','tf-exit':'꺾임 30·30·40','3-3-4':'3:3:4','4-3-3':'4:3:3','2-3-5':'2:3:5','5-3-2':'5:3:2','5-5':'5:5','full':'일괄','trail':'트레일링' };
   const head = ['날짜','종목명','구분','신용','수량','단가','매수평단','수수료','실현손익','수익률%','시장국면','손절컷','본전컷','트레일링%','타임컷일','목표가','손익비RR','자금비중%','4대컷완비','지표점수','분할비율','감정매매플래그','계획판정','매도점검','감정','매매이유','복기'];
   const body = [...trades].sort((a, b) => a.date.localeCompare(b.date)).map(t => {
     const rr = (t.stop > 0 && t.target > 0 && t.price > t.stop && t.target > t.price)
