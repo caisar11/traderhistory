@@ -275,6 +275,46 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 .lg .over{color:var(--danger);font-weight:700}
 .pieWrap{display:grid;place-items:center;padding:4px 0 2px}
 
+/* 공포탐욕지수 */
+.fgWrap{margin:4px 0 2px}
+.fgScale{display:flex;height:11px;border-radius:6px;overflow:hidden;margin-bottom:2px;position:relative}
+.fgScale i{flex:1;display:block}
+.fgScale .mk{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--ink);
+  border-radius:2px;box-shadow:0 0 0 2px #fff;transition:left .25s}
+.fgWrap input[type=range]{width:100%;margin:9px 0 4px;accent-color:var(--ink)}
+.fgLabs{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);font-weight:600}
+.fgRow{display:flex;gap:9px;align-items:center;margin-top:9px}
+.fgRow input{flex:0 0 108px;text-align:center;font-family:var(--mono);font-size:17px;font-weight:700}
+.fgRow button{flex:1}
+.fgNote{font-size:13px;line-height:1.62;margin-top:11px;padding:12px 13px;border-radius:10px;
+  background:var(--line-2);color:var(--ink-2)}
+.fgNote b{color:var(--ink)}
+.fgNote .bandName{font-size:15px;font-weight:700;display:block;margin-bottom:3px}
+
+/* 섹터 */
+.secRow{padding:11px 0;border-bottom:1px solid var(--line-2)}
+.secRow:last-child{border-bottom:0}
+.secHd{display:flex;justify-content:space-between;align-items:baseline;gap:9px;margin-bottom:6px}
+.secHd .nm{font-size:14px;font-weight:700}
+.secHd .nm span{font-size:11px;font-weight:600;color:var(--muted);margin-left:5px}
+.secHd .vv{font-family:var(--mono);font-size:13.5px;font-weight:700;flex:0 0 auto}
+.secBar{height:9px;background:var(--line-2);border-radius:5px;position:relative;overflow:visible}
+.secBar .fill{height:100%;border-radius:5px;transition:width .3s}
+.secBar .tgt{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);border-radius:1px}
+.secMsg{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.55}
+.secMsg b{color:var(--ink)}
+.secMsg.warn{color:#8A5A12} .secMsg.bad{color:#8E1B1B}
+.stab{width:100%;border-collapse:collapse;font-size:13px}
+.stab td{padding:5px 3px;border-bottom:1px solid var(--line-2)}
+.stab td:first-child{font-weight:600}
+.stab td:last-child{width:78px}
+.stab input{width:100%;padding:6px 4px;text-align:center;font-family:var(--mono);font-size:14px;border-radius:7px}
+.stab tr.on td:first-child{font-weight:800}
+.secSum{display:flex;justify-content:space-between;align-items:center;margin-top:10px;
+  font-size:12.5px;font-weight:600;padding:9px 11px;border-radius:8px;background:var(--line-2);color:var(--ink-2)}
+.secSum b{font-family:var(--mono)}
+.secSum.bad{background:#FFF3F3;color:#8E1B1B}
+
 /* 총괄 현황 */
 .ovGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px}
 .ovGrid div{background:#fff;padding:12px 13px}
@@ -483,11 +523,13 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 
   <div class="card" id="planCard">
     <h3><i class="tick m"></i>포지션 설계<span class="ckcount" id="planCap"></span></h3>
-    <div class="sub">미너비니는 손실 한 건이 계좌의 <b>1.25%</b>를 넘지 않게 합니다. 손절 폭을 정하면 그 한도에 맞는 수량이 역산되고, 진입 상한 <b>8%</b>가 함께 적용됩니다.</div>
+    <div class="sub">미너비니는 손실 한 건이 계좌의 <b>1.25%</b>를 넘지 않게 합니다. 손절 폭을 정하면 그 한도에 맞는 수량이 역산되고,
+      국면·온도에 따라 움직이는 <b>종목당 상한</b>과 <b>섹터 목표</b>가 함께 적용됩니다.</div>
     <div class="row c2">
       <div><label class="f">종목명</label><input id="fName" placeholder="종목명" list="dlNames" oninput="onNameChange()"><datalist id="dlNames"></datalist></div>
       <div><label class="f">피벗 / 진입가</label><input type="number" id="fPivot" inputmode="numeric" placeholder="0" oninput="sizeIt()"></div>
     </div>
+    <div class="row"><label class="f">섹터</label><select id="fSector" onchange="onSectorPick()"></select></div>
     <div class="row c3">
       <div><label class="f">손절 폭 %</label><input type="number" id="fStop" value="7" inputmode="decimal" oninput="sizeIt()"></div>
       <div><label class="f">거래당 리스크 %</label><input type="number" id="fRisk" value="1.25" inputmode="decimal" oninput="sizeIt()"></div>
@@ -562,26 +604,43 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     </div>
   </div>
 
-  <!-- 2. 집중도 점검 -->
+  <!-- 2. 섹터 배분 -->
+  <div class="card">
+    <h3><i class="tick"></i>섹터 배분<span class="ckcount" id="secCap"></span></h3>
+    <div class="sub">주도 섹터에 <b>크게</b> 가되, 그 안에서는 종목을 <b>나눕니다</b>. 미너비니가 주도 그룹을 공략하는 방식이 이것입니다 —
+      그룹은 집중, 그룹 안은 분산.</div>
+    <div id="secBody"></div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px">
+        <span style="font-size:12.5px;font-weight:700;color:var(--ink-2)">목표 비중 설정 (%)</span>
+        <button class="lnk" onclick="clearSectors()">모두 0으로</button></div>
+      <table class="stab" id="secTable"></table>
+      <div class="secSum" id="secSum"></div>
+      <div class="hint">비워두거나 0으로 두면 그 섹터는 관리하지 않습니다. 합계는 <b>주식 비중</b> 기준이라 100%가 아니어도 됩니다 —
+        현금 목표를 30%로 두었다면 섹터 합계는 70%가 맞습니다.</div>
+    </div>
+  </div>
+
+  <!-- 3. 집중도 점검 -->
   <div class="card">
     <h3><i class="tick"></i>집중도 점검<span class="ckcount" id="concCnt"></span></h3>
     <div id="concBody"></div>
   </div>
 
-  <!-- 3. 계좌별 현황 -->
+  <!-- 4. 계좌별 현황 -->
   <div class="card">
     <h3><i class="tick"></i>계좌별 현황</h3>
     <div id="accBody"></div>
   </div>
 
-  <!-- 4. 개별 종목 -->
+  <!-- 5. 개별 종목 -->
   <div class="card">
     <h3><i class="tick"></i>보유 종목<span class="ckcount" id="holdCnt"></span></h3>
     <div class="sub" id="holdSub"></div>
     <div id="holdList"></div>
   </div>
 
-  <!-- 5. 현금 관리 -->
+  <!-- 6. 현금 관리 -->
   <div class="card">
     <h3><i class="tick"></i>현금 관리</h3>
     <div id="cashEditBanner"></div>
@@ -599,7 +658,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     <div style="margin-top:14px" id="cashList"></div>
   </div>
 
-  <!-- 6. 일괄 입력 -->
+  <!-- 7. 일괄 입력 -->
   <div class="card" id="importCard">
     <h3><i class="tick"></i>보유 종목 일괄 입력<span class="ckcount"><button class="lnk" onclick="toggleImport()" id="impToggle">열기</button></span></h3>
     <div id="impBody" style="display:none">
@@ -630,8 +689,27 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   </div>
 
   <div class="card">
-    <h3><i class="tick k"></i>시장 온도<span class="ckcount" id="tempScore">0 / 6</span></h3>
-    <div class="sub">하워드 막스의 “시장 온도 재기”입니다. 예측이 아니라 <b>지금 어디쯤 서 있는지</b>를 확인하는 작업입니다.</div>
+    <h3><i class="tick k"></i>공포탐욕지수<span class="ckcount" id="fgCap">미입력</span></h3>
+    <div class="sub">0에 가까울수록 공포, 100에 가까울수록 탐욕입니다. 막스의 시계추를 숫자로 읽는 것이고,
+      이 값이 <b>노출·신용·현금·종목당 상한</b>을 한꺼번에 움직입니다.</div>
+    <div class="fgWrap">
+      <div class="fgScale" id="fgScale"></div>
+      <input type="range" id="fgRange" min="0" max="100" step="1" value="50"
+        oninput="setFG(this.value,false)" onchange="setFG(this.value,true)">
+      <div class="fgRow">
+        <input type="number" id="fgNum" inputmode="numeric" min="0" max="100" placeholder="0~100"
+          onchange="setFG(this.value,true)">
+        <button class="btn sm ghost" onclick="clearFG()">지수 대신 체크리스트 쓰기</button>
+      </div>
+    </div>
+    <div class="fgNote" id="fgNote"></div>
+    <div class="hint"><b>출처를 하나로 고정하세요.</b> 오늘은 A사이트, 내일은 B사이트를 보면 숫자가 튀어서 기준선이 무의미해집니다.
+      매일 같은 곳에서 같은 시각에 확인하는 것이 값 자체의 정확도보다 중요합니다.</div>
+  </div>
+
+  <div class="card" id="tempCard">
+    <h3><i class="tick k"></i>시장 온도 체크리스트<span class="ckcount" id="tempScore">0 / 6</span></h3>
+    <div class="sub">공포탐욕지수를 넣지 않았을 때 쓰는 <b>대체 수단</b>입니다. 6문항 중 몇 개가 맞는지로 온도를 대신 잽니다.</div>
     <div class="pend">
       <svg id="pendulum" viewBox="0 0 300 150"></svg>
       <div class="pendLab"><span class="down">공포 · 비관</span><span class="up">탐욕 · 낙관</span></div>
@@ -821,12 +899,17 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 
 <script>
 /* ══════════════════ 규칙 상수 ══════════════════ */
-const ENTRY_CAP=8;              // 신규 매수 시 종목당 상한 % (10~15종목 분산 보장)
+/* 종목당 진입 상한 % — 국면 × 온도로 자동 조절 (막스: 쌀 때 크게, 비쌀 때 작게) */
+const ENTRY_CAP_M={
+  up     :[12,11,9,7,6],
+  caution:[ 9, 8,7,6,5],
+  down   :[ 6, 5,5,5,5]
+};
+const ENTRY_CAP_DEF=8;          // 국면 미설정 시 기본값
+const CREDIT_RATIO=0.75;        // 신용 보유 종목은 진입 상한의 75%까지만
 const DRIFT_CAP=15;             // 보유 중 허용 상한 % — 이긴 종목이 커지는 것은 허용
-const CREDIT_ENTRY_CAP=6;       // 신용 보유 종목의 진입 상한 %
 const CREDIT_DRIFT_CAP=10;      // 신용 보유 종목의 보유 상한 %
 const TARGET_MIN=10, TARGET_MAX=15;   // 목표 보유 종목 수
-const MAX_WEIGHT=ENTRY_CAP;     // (하위 호환) 진입 기준
 const DEF_STOP=7;               // 기본 손절 폭 % (미너비니 5~8%)
 const DEF_RISK=1.25;            // 거래당 계좌 리스크 % (미너비니 0.75~1.25%)
 const DEF_TRAIL=12;             // 고점 대비 트레일링 %
@@ -839,7 +922,7 @@ const TOP3_CAP=40;              // 상위 3종목 합산 상한 %
 const TOP5_CAP=60;              // 상위 5종목 합산 상한 %
 const DEF_ACCOUNTS=['NH투자증권','미래에셋증권'];
 /* 국면 × 온도 → 목표 현금 비중 % (막스: 현금은 남은 돈이 아니라 하나의 포지션) */
-const CASH_DEF={up:[5,10,20], caution:[25,35,45], down:[50,65,80]};
+const CASH_DEF={up:[3,5,10,20,30], caution:[15,25,35,45,55], down:[45,55,65,75,85]};
 const CASH_TOL=5;               // 목표 대비 허용 오차 %p
 const CASH_FAR=15;              // 목표보다 이만큼 더 많으면 "기회" 알림
 const CREDIT_TERM=90;           // 신용융자 기본 만기일수 (증권사·상품별로 다름 — 계좌별 현황에서 수정)
@@ -894,15 +977,29 @@ const SELL_GROUP={force:['즉시 전량 청산','규칙이 깨졌을 때 — 이
                   take :['계획된 분할 익절','이익 구간에서 나누어 덜어냅니다'],
                   adj  :['조정','규칙 외 사유']};
 
-// 국면 × 온도 → [최대 주식 노출 %, 최대 신용 %]
+// 국면 × 온도(5단계) → [최대 주식 노출 %, 최대 신용 %]
 const REGIME={
-  up     :{n:'상승 추세', c:'#0F9D77', exp:[150,130,110], cr:[50,30,10],
+  up     :{n:'상승 추세', c:'#0F9D77', exp:[160,150,130,115,100], cr:[60,50,30,15,5],
            d:'지수가 50일선 위 · 50일선이 200일선 위 · 200일선 상승'},
-  caution:{n:'조정 국면', c:'#E07A00', exp:[80,60,40],   cr:[15,0,0],
+  caution:{n:'조정 국면', c:'#E07A00', exp:[95,80,60,45,35],      cr:[25,15,5,0,0],
            d:'지수가 50일선 아래이나 200일선 위'},
-  down   :{n:'하락 추세', c:'#C1121F', exp:[30,20,0],    cr:[0,0,0],
+  down   :{n:'하락 추세', c:'#C1121F', exp:[40,30,20,10,0],       cr:[0,0,0,0,0],
            d:'지수가 200일선 아래 · 200일선 하락'}
 };
+/* 공포탐욕지수 0~100 → 5단계. 낮을수록 공포(살 때), 높을수록 탐욕(방어할 때) */
+const FG_BANDS=[
+  [0,24,'극공포','#1155CC'],
+  [25,44,'공포','#4C86D9'],
+  [45,55,'중립','#858E99'],
+  [56,74,'탐욕','#E07A00'],
+  [75,100,'극탐욕','#C1121F']
+];
+/* 섹터 — 목표 비중을 직접 정하고 그 안에서 종목을 나눈다 */
+const SECTOR_DEF=['반도체','2차전지','바이오·제약','자동차','조선·기계','방산·항공',
+                  '인터넷·플랫폼','금융','소비재·유통','에너지·화학','건설·부동산','기타'];
+const SECTOR_TOL=10;            // 목표 대비 허용 오차 %p
+const CORR_WARN=40;             // 단일 섹터가 이 비중을 넘으면 상관 위험 안내
+const SECTOR_SHOCK=10;          // 상관 위험 시나리오 — 섹터 동시 하락 %
 const TEMP_Q=[
   ['낙관론이 시장을 지배한다','비관적 견해를 말하면 시대에 뒤처진 사람 취급을 받는다'],
   ['위험을 감수하는 것이 당연시된다','“이번엔 다르다”는 말이 자주 들린다'],
@@ -949,14 +1046,15 @@ const MASTERS=[
   ['하워드 막스','가장 중요한 것은 지지 않는 것이다','노출 한도가 공격이 아니라 방어 기준으로 설계돼 있습니다'],
   ['하워드 막스','예측할 수 없다면 대비하라','시장 온도 6문항으로 지금 위치를 확인하고 한도를 조정합니다'],
   ['하워드 막스','시계추는 반드시 중앙을 지나 반대편으로 간다','온도가 뜨거울수록 신용 한도가 낮아집니다'],
-  ['공통','한 종목이 계좌를 망치게 두지 않는다','진입 상한 '+ENTRY_CAP+'% · 보유 상한 '+DRIFT_CAP+'% · 목표 '+TARGET_MIN+'~'+TARGET_MAX+'종목'],
+  ['공통','한 종목이 계좌를 망치게 두지 않는다','종목당 상한은 국면·온도에 따라 5~12% · 보유 상한 '+DRIFT_CAP+'% · 목표 '+TARGET_MIN+'~'+TARGET_MAX+'종목'],
   ['공통','이긴 종목은 커지도록 둔다','상승으로 비중이 늘어나는 것은 '+DRIFT_CAP+'%까지 허용합니다 — 진입만 제한합니다']
 ];
 
 /* ══════════════════ 상태 ══════════════════ */
 const KEY='sepa-journal-v3';
 let DB={trades:[],cash:[],prices:{},high:{},cfg:{},snaps:[],acted:{},accounts:DEF_ACCOUNTS.slice(),
-        market:{regime:'',temp:[false,false,false,false,false,false],cash:null},
+        market:{regime:'',temp:[false,false,false,false,false,false],cash:null,fg:null},
+        sectors:null,
         peak:0,peakFrom:'',autoSnap:true};
 let side='buy',mood='',checks={},stagePick=0,exitPick='',lotPick='';
 let editId=null;            // 수정 중인 거래 id
@@ -1230,8 +1328,82 @@ function totals(){
 }
 const weightOf=(v,t)=>t>0?v/t*100:0;
 const tempScore=()=>DB.market.temp.filter(Boolean).length;
-const tempBand=()=>{const s=tempScore();return s<=2?0:s<=4?1:2;};
-const TEMP_NAME=['차가움','중립','뜨거움'];
+/* 공포탐욕지수가 입력돼 있으면 그것을, 없으면 체크리스트 6문항을 쓴다 */
+const fgSet=()=>DB.market.fg!==null&&DB.market.fg!==undefined&&isFinite(DB.market.fg);
+const tempBand=()=>{
+  if(fgSet()){
+    const v=Math.max(0,Math.min(100,DB.market.fg));
+    for(let i=0;i<FG_BANDS.length;i++)if(v<=FG_BANDS[i][1])return i;
+    return 4;
+  }
+  const s=tempScore();                       // 0~6 → 5단계
+  return s<=1?0:s<=2?1:s<=3?2:s<=5?3:4;
+};
+const TEMP_NAME=FG_BANDS.map(b=>b[2]);
+const TEMP_COLOR=FG_BANDS.map(b=>b[3]);
+
+/* — 종목당 진입 상한 — 국면 × 온도로 자동 조절 — */
+function entryCap(credit){
+  const r=DB.market.regime;
+  const base=r&&ENTRY_CAP_M[r]?ENTRY_CAP_M[r][tempBand()]:ENTRY_CAP_DEF;
+  return credit?Math.round(base*CREDIT_RATIO*10)/10:base;
+}
+
+/* — 섹터 — */
+function sectorList(){
+  const cur=DB.sectors&&typeof DB.sectors==='object'?DB.sectors:{};
+  const names=[...SECTOR_DEF];
+  for(const k of Object.keys(cur))if(!names.includes(k))names.push(k);
+  return names;
+}
+function sectorTargets(){
+  const cur=DB.sectors&&typeof DB.sectors==='object'?DB.sectors:{};
+  const out={};
+  for(const n of sectorList()){const v=+cur[n];out[n]=isFinite(v)&&v>=0?v:0;}
+  return out;
+}
+function setSectorTarget(name,v){
+  const T=sectorTargets();
+  T[name]=Math.max(0,Math.min(100,+v||0));
+  DB.sectors=T;save();renderAll();
+}
+function sectorOf(name){
+  const c=DB.cfg[name];
+  return (c&&c.sector)||'기타';
+}
+function setSectorOf(name,sec){
+  cfg(name).sector=sec;save();renderAll();
+  toast(`${name} → ${sec}`);
+}
+/* 섹터별 현재 비중 · 목표 · 필요 종목 수 */
+function sectorState(){
+  const t=totals(),T=sectorTargets();
+  const map={};
+  for(const n of sectorList())map[n]={name:n,target:T[n],val:0,n:0,names:[]};
+  for(const h of t.hs){
+    const s=sectorOf(h.name);
+    if(!map[s])map[s]={name:s,target:T[s]||0,val:0,n:0,names:[]};
+    map[s].val+=h.val;map[s].n++;map[s].names.push(h.name);
+  }
+  const cap=entryCap(false);
+  const rows=Object.values(map).map(m=>{
+    const w=weightOf(m.val,t.total);
+    const need=m.target>0?Math.ceil(m.target/cap):0;   // 목표를 상한 안에서 채우려면 몇 종목?
+    return {...m,w,need,short:Math.max(need-m.n,0),gap:w-m.target,
+            room:Math.max(m.target-w,0)/100*t.total};
+  });
+  rows.sort((a,b)=>b.w-a.w||b.target-a.target);
+  const sum=rows.reduce((s,r)=>s+r.target,0);
+  return {rows,sum,cap,total:t.total,
+          used:rows.filter(r=>r.target>0||r.n>0)};
+}
+/* 이 섹터에 지금 더 넣을 수 있는 금액 (목표 대비 남은 여력) */
+function sectorRoom(sec){
+  const S=sectorState();
+  const r=S.rows.find(x=>x.name===sec);
+  if(!r||!r.target)return null;
+  return r.room;
+}
 
 /* — 목표 현금 비중 — */
 function cashTable(){
@@ -1324,8 +1496,8 @@ function realizedStats(){
 /* ══════════════════ 렌더 ══════════════════ */
 function renderAll(){
   renderTop();renderGate();renderStages();sizeIt();renderExitPlan();renderChecks();renderMoods();renderRecent();
-  renderOverview();renderHold();renderPie();renderCreditBar();renderConcentration();renderAccounts();renderCash();fillAccounts();previewImport();
-  renderRegime();renderTemp();renderPendulum();renderCashTarget();renderExposure();renderMatrix();
+  renderOverview();renderHold();renderPie();renderCreditBar();renderSectors();renderConcentration();renderAccounts();renderCash();fillAccounts();fillSectorSelect();previewImport();
+  renderRegime();renderFG();renderTemp();renderPendulum();renderCashTarget();renderExposure();renderMatrix();
   renderRange();renderBars();renderSnaps();renderStats();renderAlerts();renderMasters();renderGuide();renderHistory();renderLots();renderNames();renderSyncInfo();
   renderEditBanner();renderCashEditBanner();renderDataCard();calcAmt();
 }
@@ -1360,6 +1532,7 @@ function renderNames(){
 function onNameChange(){
   const n=$('fName').value.trim();$('fName2').value=n;
   if(n&&DB.cfg[n]){$('fStop').value=DB.cfg[n].stop;if(DB.cfg[n].pivot)$('fPivot').value=DB.cfg[n].pivot;}
+  fillSectorSelect();
   renderStages();sizeIt();renderExitPlan();calcAmt();
 }
 
@@ -1381,7 +1554,7 @@ function renderGate(){
   else if(dd>=15){tone='cut';msg='계좌가 고점 대비 15% 이상 밀렸습니다. 미너비니라면 지금은 크기를 절반 이하로 줄이고 규칙을 재점검할 때입니다.';}
   else if(CS.status==='low2'){tone='cut';msg=`현금이 목표 ${CS.target}%보다 ${Math.abs(CS.gap).toFixed(1)}%p 부족합니다. 지금은 사는 자리가 아니라 ${won(Math.abs(CS.need))}원어치를 덜어낼 자리입니다.`;}
   else if(CS.status==='low'){tone='warn';msg=`현금 ${CS.now.toFixed(1)}% — 목표 ${CS.target}%에 미치지 못합니다. 더 사면 방어선이 더 얇아집니다.`;}
-  else if(L.band===2){tone='warn';msg='시계추가 탐욕 쪽 끝에 있습니다. 진입은 가능하지만 신용 한도가 '+L.cr.toFixed(0)+'%로 조여져 있습니다.';}
+  else if(L.band>=3){tone='warn';msg='시계추가 탐욕 쪽에 있습니다('+TEMP_NAME[L.band]+'). 진입은 가능하지만 종목당 상한이 '+entryCap(false)+'%, 신용 한도가 '+L.cr.toFixed(0)+'%로 조여져 있습니다.';}
   else if(t.exp>=L.exp){tone='warn';msg='이미 노출 상한에 도달했습니다. 새로 사려면 기존 포지션을 먼저 줄여야 합니다.';}
   else msg='진입 가능한 구간입니다. 남은 노출 여유는 약 '+won(room)+'원입니다.';
   const col=tone==='cut'?'var(--danger)':tone==='warn'?'var(--warn)':'var(--cash)';
@@ -1404,11 +1577,23 @@ function sizeIt(){
   const box=$('sizeBox');
   if(!pivot||!t.total){box.innerHTML='';return;}
   const byRisk=t.total*(risk/100)/(stop/100);
-  const byWeight=t.total*ENTRY_CAP/100;
+  const name=$('fName').value.trim();
+  const held=t.hs.find(h=>h.name===name);
+  const credit=$('fCredit')&&$('fCredit').checked;
+  const cap=entryCap(credit||(held&&held.cq>0));
+  const heldVal=held?held.val:0;
+  const byWeight=Math.max(t.total*cap/100-heldVal,0);      // 이미 들고 있는 만큼 차감
   const byExp=L.set?Math.max(t.total*L.exp/100-t.stock,0):byWeight;
-  const size=Math.max(0,Math.min(byRisk,byWeight,byExp));
+  const sec=$('fSector')?$('fSector').value:null;
+  const secR=sec?sectorRoom(sec):null;
+  const bySec=secR===null?Infinity:secR;
+  const size=Math.max(0,Math.min(byRisk,byWeight,byExp,bySec));
   const qty=Math.floor(size/pivot);
-  const bind=size===byExp&&byExp<byRisk&&byExp<byWeight?'노출 한도':size===byWeight&&byWeight<byRisk?`진입 상한 ${ENTRY_CAP}%`:`리스크 ${risk}%`;
+  let bind=`리스크 ${risk}%`;
+  const m=Math.min(byRisk,byWeight,byExp,bySec);
+  if(m===bySec&&bySec<byRisk)bind=`${sec} 섹터 목표`;
+  else if(m===byExp&&byExp<byRisk)bind='노출 한도';
+  else if(m===byWeight&&byWeight<byRisk)bind=`종목당 상한 ${cap}%`;
   window._size=size;
   box.innerHTML=`<div style="background:var(--line-2);border-radius:11px;padding:12px;margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
@@ -1417,6 +1602,7 @@ function sizeIt(){
     <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:3px" class="num">
       <span>약 ${won(qty)}주 · 제한 요인: ${bind}</span>
       <span>최대 손실 ${won(size*stop/100)}원</span></div>
+    ${secR!==null?`<div style="font-size:11.5px;color:var(--muted);margin-top:4px" class="num">${esc(sec)} 섹터 남은 여력 ${won(secR)}원</div>`:''}
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="btn sm ghost" onclick="applySize(1)">1차 ${BUY_SPLIT[0]}% 채우기</button>
       <button class="btn sm ghost" onclick="applySize(0)">전량 수량 채우기</button></div></div>`;
@@ -1435,7 +1621,7 @@ function renderStages(){
   const t=totals(),name=$('fName').value.trim();
   const h=holdings().find(x=>x.name===name);
   const done=h?h.buys:0, first=h?h.first:(+$('fPivot').value||0);
-  $('planCap').textContent=t.total>0?'진입 상한 '+won(t.total*ENTRY_CAP/100)+'원':'';
+  $('planCap').textContent=t.total>0?`종목당 ${entryCap(false)}% · ${won(t.total*entryCap(false)/100)}원`:'';
   $('stages').innerHTML=BUY_SPLIT.map((p,i)=>{
     const amt=(window._size||0)*p/100;
     const trig=i===0?'피벗 돌파':'1차 +'+BUY_TRIG[i]+'%';
@@ -1634,15 +1820,16 @@ function calcAmt(){
     const cur=t.hs.find(h=>h.name===name);
     const after=((cur?cur.val:0)+q*p)/t.total*100;
     const expAfter=(t.stock+q*p)/t.total*100;
-    const bad=after>ENTRY_CAP, expBad=L.set&&expAfter>L.exp;
+    const eCap=entryCap($('fCredit')&&$('fCredit').checked);
+    const bad=after>eCap, expBad=L.set&&expAfter>L.exp;
     if(bad||expBad){
       w.innerHTML=`<div style="background:#FFF3F3;border:1px solid #F5C6C6;border-radius:9px;padding:10px 11px;margin-bottom:12px;font-size:12.5px;line-height:1.55">
-        ${bad?`<b class="dgr">종목 비중 ${after.toFixed(1)}% — 진입 상한 ${ENTRY_CAP}% 초과</b><br>`:''}
+        ${bad?`<b class="dgr">종목 비중 ${after.toFixed(1)}% — 종목당 상한 ${eCap}% 초과</b><br>`:''}
         ${expBad?`<b class="dgr">전체 노출 ${expAfter.toFixed(0)}% — 한도 ${L.exp}% 초과</b><br>`:''}
         <span class="mut">수량을 줄이거나 기존 포지션을 먼저 정리하세요.</span></div>`;
     }else{
       w.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:12px" class="num">
-        종목 비중 <b style="color:var(--ink)">${after.toFixed(1)}%</b>/${ENTRY_CAP}%
+        종목 비중 <b style="color:var(--ink)">${after.toFixed(1)}%</b>/${eCap}%
         &nbsp;·&nbsp; 전체 노출 <b style="color:var(--ink)">${expAfter.toFixed(0)}%</b>/${L.set?L.exp:'—'}%</div>`;
     }
   }else w.innerHTML='';
@@ -1676,7 +1863,8 @@ function saveTrade(){
     const cur=t.hs.find(h=>h.name===name);
     const after=((cur?cur.val:0)+qty*price)/(t.total||1)*100;
     const expAfter=(t.stock+qty*price)/(t.total||1)*100;
-    if(t.total>0&&after>ENTRY_CAP&&!confirm(`매수 후 비중이 ${after.toFixed(1)}%로 진입 상한 ${ENTRY_CAP}%를 넘습니다.\n10~15종목 분산을 유지하려면 수량을 줄이는 편이 낫습니다.\n그래도 기록할까요?`))return;
+    const eCap2=entryCap($('fCredit').checked);
+    if(t.total>0&&after>eCap2&&!confirm(`매수 후 비중이 ${after.toFixed(1)}%로 종목당 상한 ${eCap2}%를 넘습니다.\n같은 섹터를 크게 가져가려면 종목 수를 늘리는 편이 낫습니다.\n그래도 기록할까요?`))return;
     if(L.set&&expAfter>L.exp&&!confirm(`전체 노출이 ${expAfter.toFixed(0)}%로 한도 ${L.exp}%를 넘습니다.\n그래도 기록할까요?`))return;
     if($('fCredit').checked&&t.total>0){
       const cAfter=(t.debt+qty*price)/t.total*100;
@@ -1706,7 +1894,8 @@ function saveTrade(){
   }
 
   if(side==='buy'){const c=cfg(name);c.stop=+$('fStop').value||DEF_STOP;c.risk=+$('fRisk').value||DEF_RISK;
-    if(+$('fPivot').value)c.pivot=+$('fPivot').value;}
+    if(+$('fPivot').value)c.pivot=+$('fPivot').value;
+    if($('fSector')&&$('fSector').value)c.sector=$('fSector').value;}
   if(!DB.prices[name])DB.prices[name]=price;
   DB.high[name]=Math.max(DB.high[name]||0,price);
   save();
@@ -1801,7 +1990,8 @@ function renderHold(){
         ${over?'<span class="chip d">비중 초과</span>':''}
         ${h.c.free?'<span class="chip ok">프리롤</span>':''}
         ${Object.keys(h.acc).filter(a=>h.acc[a]>0.0001).map(a=>`<span class="chip g">${esc(a.replace('투자증권','').replace('증권',''))}</span>`).join('')}
-        <span class="chip g">${Math.min(h.buys,3)}/3</span></div>
+        <span class="chip g">${Math.min(h.buys,3)}/3</span>
+        <span class="chip">${esc(sectorOf(h.name))}</span></div>
         <div class="rt"><b class="${cls}">${h.rate>0?'+':''}${h.rate.toFixed(2)}%</b>
           <span class="${cls}">${h.R>0?'+':''}${h.R.toFixed(1)}R · ${h.pl>0?'+':''}${won(h.pl)}원</span></div></div>
       <div class="hm">
@@ -1814,8 +2004,14 @@ function renderHold(){
         <div class="fld"><label>손절 %</label><input type="number" inputmode="decimal" value="${h.c.stop}" onchange="setCfg('${esc(h.name)}','stop',this.value)"></div>
         <div class="fld"><label>트레일 %</label><input type="number" inputmode="decimal" value="${h.c.trail}" onchange="setCfg('${esc(h.name)}','trail',this.value)"></div>
       </div>
-      <div style="display:flex;gap:8px;margin-top:10px">
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
         <button class="btn sm ghost" style="flex:1" onclick="openExit('${esc(h.name)}')">매도 사다리 열기</button>
+        <select style="flex:0 0 130px;padding:8px 9px;font-size:12.5px;border-radius:8px"
+          onchange="setSectorOf('${esc(h.name)}',this.value)">
+          ${sectorList().map(n=>`<option value="${esc(n)}" ${sectorOf(h.name)===n?'selected':''}>${esc(n)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
         ${h.c.free
           ? `<button class="btn sm ghost" style="flex:0 0 auto" onclick="unsetFree('${esc(h.name)}')">프리롤 해제</button>`
           : (h.R>=FREE_ROLL_R
@@ -1883,7 +2079,7 @@ function renderPie(){
   out+=`<text x="${cx}" y="${cy-4}" text-anchor="middle" style="font-family:var(--mono);font-size:11px;fill:var(--muted)">총 자산</text>
     <text x="${cx}" y="${cy+13}" text-anchor="middle" style="font-family:var(--mono);font-size:15px;font-weight:700;fill:var(--ink)">${won(sum)}</text>`;
   svg.innerHTML=out;
-  $('pieCap').textContent=`진입 ${ENTRY_CAP}% · 보유 ${DRIFT_CAP}%`;
+  $('pieCap').textContent=`종목당 ${entryCap(false)}% · 보유 ${DRIFT_CAP}%`;
   $('pieLegend').innerHTML=parts.map(p=>{
     const pc=p.v/sum*100,over=p.n!=='현금'&&weightOf(p.v,t.total)>DRIFT_CAP;
     return `<div class="lg"><i style="background:${p.c}"></i><span class="nm">${esc(p.n)}</span>
@@ -2030,7 +2226,7 @@ function renderConcentration(){
       <span>상위5 ${top5.toFixed(0)}% / ${TOP5_CAP}%</span></div>`;
   if(!issues.length){
     out+=`<div class="conc" style="border-left-color:var(--cash)"><div class="t">집중도 양호</div>
-      <div class="d">비중 기준을 모두 지키고 있습니다. 새로 살 때는 <b>${ENTRY_CAP}%</b>가 상한이고, 오르면서 커지는 것은 <b>${DRIFT_CAP}%</b>까지 허용합니다. 신용 보유 종목은 <b>${CREDIT_ENTRY_CAP}% / ${CREDIT_DRIFT_CAP}%</b>로 더 낮습니다.</div></div>`;
+      <div class="d">비중 기준을 모두 지키고 있습니다. 새로 살 때는 <b>${entryCap(false)}%</b>가 상한이고(국면·온도에 따라 움직입니다), 오르면서 커지는 것은 <b>${DRIFT_CAP}%</b>까지 허용합니다. 신용 보유 종목은 <b>${entryCap(true)}% / ${CREDIT_DRIFT_CAP}%</b>로 더 낮습니다.</div></div>`;
   }else{
     out+=issues.map(x=>`<div class="conc ${x.hard?'hard':''}">
       <div class="t"><span>${esc(x.t)}</span>${x.hard?'<b class="dgr">조정 필요</b>':'<b class="warnC">경고</b>'}</div>
@@ -2126,11 +2322,57 @@ function renderRegime(){
     <label class="check" style="align-items:center">
       <input type="radio" name="rg" ${DB.market.regime===k?'checked':''} onchange="setRegime('${k}')" style="accent-color:${v.c}">
       <span><b style="color:${v.c}">${v.n}</b><i>${v.d}</i></span>
-      <span class="ckcount num">노출 ${v.exp[tempBand()]}% · 신용 ${v.cr[tempBand()]}%</span></label>`).join('');
+      <span class="ckcount num">노출 ${v.exp[tempBand()]}% · 신용 ${v.cr[tempBand()]}% · 종목당 ${ENTRY_CAP_M[k][tempBand()]}%</span></label>`).join('');
 }
 function setRegime(k){DB.market.regime=k;DB.market.updated=today();save();renderAll();toast(REGIME[k].n+'으로 설정했습니다');}
+
+/* — 공포탐욕지수 — */
+function setFG(v,commit){
+  const n=Math.max(0,Math.min(100,Math.round(+v)));
+  if(!isFinite(n))return;
+  DB.market.fg=n;
+  if(commit){save();renderAll();toast(`공포탐욕 ${n} · ${TEMP_NAME[tempBand()]}`);}
+  else{$('fgNum').value=n;renderFG();renderExposure();renderCashTarget();}
+}
+function clearFG(){
+  DB.market.fg=null;save();renderAll();
+  toast('체크리스트로 온도를 잽니다');
+}
+function renderFG(){
+  const set=fgSet(),v=set?Math.max(0,Math.min(100,DB.market.fg)):null,b=tempBand();
+  $('fgScale').innerHTML=FG_BANDS.map(x=>`<i style="background:${x[3]};opacity:.9"></i>`).join('')
+    +(set?`<span class="mk" style="left:calc(${v}% - 1.5px)"></span>`:'');
+  $('fgRange').value=set?v:50;
+  $('fgNum').value=set?v:'';
+  $('fgCap').textContent=set?`${v} · ${TEMP_NAME[b]}`:'미입력 · 체크리스트 사용 중';
+  $('fgCap').style.color=set?TEMP_COLOR[b]:'';
+  const card=$('tempCard');
+  if(card)card.style.opacity=set?'.5':'1';
+  const L=limits();
+  const note=$('fgNote');
+  if(!set){
+    note.innerHTML=`<span class="bandName">지수 미입력</span>
+      아래 체크리스트 6문항으로 온도를 재고 있습니다. 지수를 넣으면 그쪽이 우선합니다.`;
+    return;
+  }
+  const cap=entryCap(false);
+  const msgs=[
+    '시계추가 공포 끝에 있습니다. 막스라면 <b>지금이 가장 공격적이어야 할 때</b>라고 말합니다 — 단, 국면이 상승일 때만입니다. 하락 추세에서의 극공포는 아직 바닥이 아닙니다.',
+    '두려움이 값을 눌러놓은 구간입니다. 규칙을 통과하는 종목이 있으면 평소보다 크게 잡아도 됩니다.',
+    '어느 쪽으로도 치우치지 않았습니다. 기준대로만 하면 됩니다.',
+    '탐욕이 붙기 시작했습니다. 새로 사는 것보다 <b>가진 것을 지키는 쪽</b>으로 무게가 옮겨갈 때입니다.',
+    '시계추가 탐욕 끝에 있습니다. 이럴 때 잃습니다. 신용을 줄이고 현금을 늘리세요 — 무엇을 살지가 아니라 <b>무엇을 덜어낼지</b>를 보는 구간입니다.'
+  ];
+  note.innerHTML=`<span class="bandName" style="color:${TEMP_COLOR[b]}">${v} · ${TEMP_NAME[b]}</span>
+    ${msgs[b]}<br>
+    <b style="display:inline-block;margin-top:7px">지금 열린 한도</b> —
+    주식 노출 <b>${L.set?L.exp+'%':'국면 미설정'}</b> ·
+    신용 <b>${L.set?L.cr.toFixed(0)+'%':'—'}</b> ·
+    현금 목표 <b>${L.set?L.cashT+'%':'—'}</b> ·
+    종목당 <b>${cap}%</b>`;
+}
 function renderTemp(){
-  $('tempScore').textContent=tempScore()+' / 6 · '+TEMP_NAME[tempBand()];
+  $('tempScore').textContent=tempScore()+' / 6'+(fgSet()?' · 미사용':' · '+TEMP_NAME[tempBand()]);
   $('tempList').innerHTML=TEMP_Q.map((q,i)=>`<label class="check">
     <input type="checkbox" ${DB.market.temp[i]?'checked':''} onchange="setTemp(${i},this.checked)">
     <span>${q[0]}<i>${q[1]}</i></span></label>`).join('');
@@ -2189,7 +2431,7 @@ function renderCashTarget(){
   $('cgTolTxt').textContent=CASH_TOL;
   const CS=cashState();
   $('cashCap').textContent=CS.set?`현재 ${CS.now.toFixed(0)}% / 목표 ${CS.target}%`:'국면 미설정';
-  let h='<tr><th>국면 \\ 온도</th><th>차가움</th><th>중립</th><th>뜨거움</th></tr>';
+  let h='<tr><th>국면 \\ 온도</th>'+TEMP_NAME.map(n=>`<th>${n}</th>`).join('')+'</tr>';
   for(const[k,v]of Object.entries(REGIME)){
     h+=`<tr class="${cur===k?'act':''}"><td style="color:${v.c}">${v.n}</td>`+
       T[k].map((c,i)=>`<td class="${cur===k&&b===i?'cur':''}">
@@ -2224,6 +2466,94 @@ function renderOverview(){
   paintCashGauge('hcg');
 }
 
+/* — 섹터 배분 — */
+function renderSectors(){
+  const S=sectorState(),t=totals();
+  const cap=S.cap;
+  $('secCap').textContent=`종목당 상한 ${cap}%`;
+
+  const show=S.rows.filter(r=>r.target>0||r.n>0);
+  const body=$('secBody');
+  if(!show.length){
+    body.innerHTML='<div class="empty">아직 목표를 정한 섹터가 없습니다.<br>아래 표에서 주도 섹터의 목표 비중부터 넣어보세요.</div>';
+  }else{
+    body.innerHTML=show.map(r=>{
+      const over=r.target>0&&r.gap>SECTOR_TOL;
+      const under=r.target>0&&r.gap<-SECTOR_TOL;
+      const col=over?'var(--danger)':r.target===0?'var(--muted)':'var(--deep)';
+      const scale=Math.max(60,r.target+20,r.w+10);
+      let msg='',cls='';
+      if(!r.target){
+        msg=`목표를 정하지 않은 섹터입니다. ${r.n}종목 · <b>${r.w.toFixed(1)}%</b>`;
+      }else if(r.short>0){
+        cls='';
+        msg=`목표 <b>${r.target}%</b>를 상한 <b>${cap}%</b> 안에서 채우려면 최소 <b>${r.need}종목</b>이 필요합니다.
+             지금 ${r.n}종목이니 <b>${r.short}개</b>를 더 찾거나, 목표를 <b>${Math.floor(r.n*cap)}%</b>까지로 낮추세요.`;
+      }else if(over){
+        cls='warn';
+        msg=`목표보다 <b>${r.gap.toFixed(1)}%p</b> 많습니다. 약 <b>${won((r.gap/100)*t.total)}원</b>어치가 초과분입니다.`;
+      }else if(under){
+        msg=`목표까지 <b>${(-r.gap).toFixed(1)}%p</b> 남았습니다. 약 <b>${won(r.room)}원</b>을 더 담을 수 있습니다.`;
+      }else{
+        msg=`목표 범위 안입니다. ${r.n}종목 · 평균 <b>${(r.w/Math.max(r.n,1)).toFixed(1)}%</b>`;
+      }
+      return `<div class="secRow">
+        <div class="secHd"><div class="nm">${esc(r.name)}<span>${r.n}종목</span></div>
+          <div class="vv" style="color:${col}">${r.w.toFixed(1)}%${r.target?` <span class="mut" style="font-weight:500">/ ${r.target}%</span>`:''}</div></div>
+        <div class="secBar">
+          <div class="fill" style="width:${Math.min(100,r.w/scale*100)}%;background:${over?'var(--danger)':'var(--deep)'}"></div>
+          ${r.target?`<div class="tgt" style="left:${Math.min(100,r.target/scale*100)}%"></div>`:''}
+        </div>
+        <div class="secMsg ${cls}">${msg}</div></div>`;
+    }).join('');
+  }
+
+  // 상관 위험 — 한 섹터가 크면 손절이 동시에 무너진다
+  const top=S.rows[0];
+  if(top&&top.w>=CORR_WARN&&t.total>0){
+    const hit=top.val*SECTOR_SHOCK/100;
+    body.innerHTML+=`<div class="box warn" style="margin-top:14px"><b>상관 위험</b> —
+      ${esc(top.name)}가 주식의 상당 부분(<b>${top.w.toFixed(1)}%</b>)입니다.
+      이 섹터가 하루에 <b>${SECTOR_SHOCK}%</b> 빠지면 계좌는 <b>${won(hit)}원</b>(<b>${(hit/t.total*100).toFixed(1)}%</b>) 줄어듭니다.
+      종목별 손절은 각각 살아 있어도 <b>같은 날 동시에 발동</b>하므로, 이 숫자가 감당 가능한지 미리 정해두세요.</div>`;
+  }
+
+  // 목표 편집표
+  const cur=sectorTargets();
+  $('secTable').innerHTML=sectorList().map(n=>{
+    const r=S.rows.find(x=>x.name===n)||{n:0,w:0};
+    return `<tr class="${cur[n]>0?'on':''}"><td>${esc(n)}
+      ${r.n?`<span class="mut" style="font-weight:500;font-size:11.5px"> · 보유 ${r.n} · ${r.w.toFixed(1)}%</span>`:''}</td>
+      <td><input type="number" inputmode="numeric" min="0" max="100" value="${cur[n]||''}" placeholder="0"
+        onchange="setSectorTarget('${esc(n)}',this.value)"></td></tr>`;
+  }).join('');
+
+  const cs=cashState();
+  const room=cs.set?100-cs.target:100;
+  const bad=S.sum>room+SECTOR_TOL;
+  $('secSum').className='secSum'+(bad?' bad':'');
+  $('secSum').innerHTML=`<span>목표 합계</span><span><b>${S.sum}%</b>${cs.set?` · 현금 목표를 뺀 여유 <b>${room}%</b>`:''}</span>`;
+  if(bad)$('secSum').innerHTML+=`<span style="flex-basis:100%;margin-top:5px;font-weight:500">섹터 합계가 현금 목표와 충돌합니다. 합계를 ${room}% 이하로 맞추세요.</span>`;
+}
+function clearSectors(){
+  if(!confirm('모든 섹터 목표를 0으로 되돌릴까요?'))return;
+  DB.sectors=null;save();renderAll();toast('섹터 목표를 비웠습니다');
+}
+function fillSectorSelect(){
+  const sel=$('fSector');if(!sel)return;
+  const name=$('fName').value.trim();
+  const cur=name?sectorOf(name):(sel.value||'기타');
+  sel.innerHTML=sectorList().map(n=>{
+    const t=sectorTargets()[n];
+    return `<option value="${esc(n)}" ${n===cur?'selected':''}>${esc(n)}${t>0?` (목표 ${t}%)`:''}</option>`;
+  }).join('');
+}
+function onSectorPick(){
+  const name=$('fName').value.trim();
+  if(name)cfg(name).sector=$('fSector').value;
+  save();sizeIt();renderSectors();
+}
+
 function renderExposure(){
   const t=totals(),L=limits();
   const maxExp=L.set?L.exp:150;
@@ -2247,14 +2577,14 @@ function renderExposure(){
   let note='';
   if(L.f===0)note='계좌가 고점 대비 15% 이상 밀렸습니다. 신용을 전면 차단했습니다. 미너비니는 이 구간에서 크기를 줄이고 규칙 위반이 없었는지 되짚습니다.';
   else if(L.f<1)note=`고점 대비 ${dd.toFixed(1)}% 하락으로 신용 한도에 ×${L.f.toFixed(1)} 계수가 적용됐습니다. 회복될수록 한도가 자동으로 풀립니다.`;
-  else if(L.band===2)note='시계추가 탐욕 쪽 끝에 있습니다. 막스라면 지금이 가장 방어적이어야 할 때라고 말할 것입니다 — 그래서 신용 한도가 조여져 있습니다.';
+  else if(L.band>=3)note='시계추가 탐욕 쪽에 있습니다. 막스라면 지금이 가장 방어적이어야 할 때라고 말할 것입니다 — 그래서 신용 한도가 조여져 있습니다.';
   else if(DB.market.regime==='down')note='하락 추세에서는 신용도, 신규 진입도 없습니다. 현금이 포지션입니다.';
   else note='국면과 온도가 모두 우호적입니다. 다만 종목당 10% 상한과 거래당 1.25% 리스크는 그대로 적용됩니다.';
   $('regimeNote').textContent=note;
 }
 function renderMatrix(){
   const b=tempBand(),cur=DB.market.regime;
-  let h='<tr><th>국면 \\ 온도</th><th>차가움</th><th>중립</th><th>뜨거움</th></tr>';
+  let h='<tr><th>국면 \\ 온도</th>'+TEMP_NAME.map(n=>`<th>${n}</th>`).join('')+'</tr>';
   for(const[k,v]of Object.entries(REGIME)){
     h+=`<tr class="${cur===k?'act':''}"><td style="color:${v.c}">${v.n}</td>`+
       v.cr.map((c,i)=>`<td class="${cur===k&&b===i?'cur':''}">${c}%</td>`).join('')+'</tr>';
@@ -2514,7 +2844,7 @@ function alerts(){
       const i=h.buys,trig=h.first*(1+BUY_TRIG[i]/100);
       const room=Math.min(t.total*DRIFT_CAP/100-h.val,Math.max(t.total*L.exp/100-t.stock,0));
       if(h.px>=trig&&room>0&&h.R>0&&!K(key('add'+(i+1)))){
-        const amt=Math.min((window._size||t.total*ENTRY_CAP/100)*BUY_SPLIT[i]/100,room);
+        const amt=Math.min((window._size||t.total*entryCap(false)/100)*BUY_SPLIT[i]/100,room);
         const qty=Math.max(1,Math.floor(amt/h.px));
         add({sev:4,p:21,k:key('add'+(i+1)),tag:`${i+1}차 분할 매수 시점`,n:h.name,
           d:`1차 진입가 <b>${won(h.first)}원</b> 대비 <b>+${BUY_TRIG[i]}%</b>를 넘었고 <b>+${h.R.toFixed(1)}R</b> 이익 구간입니다. 계획된 <b>${BUY_SPLIT[i]}%</b>인 약 <b>${won(qty*h.px)}원</b>(<b>${won(qty)}주</b>)을 추가할 자리입니다.`,
@@ -2570,10 +2900,34 @@ function alerts(){
       add({sev:4,p:22,k:'cashhi'+Math.round(CS.now),tag:'현금 여력 있음',n:'계좌 전체',
         d:`현금이 <b>${CS.now.toFixed(1)}%</b>로 목표 <b>${CS.target}%</b>보다 <b>${CS.gap.toFixed(1)}%p</b> 많습니다(약 <b>${won(CS.need*-1)}원</b>). 방어는 충분합니다. 추세 템플릿을 통과하는 종목이 있다면 쓸 수 있는 여력입니다 — 없다면 그냥 현금으로 두는 것도 결정입니다.`});
     }
-    if(L.band===2&&DB.market.regime==='up'&&!K('hot')){
-      add({sev:5,p:31,k:'hot',tag:'시계추 · 탐욕 구간',n:'시장 전체',
-        d:`온도 <b>${tempScore()}/6</b> — 시계추가 탐욕 쪽 끝에 있습니다. 추세는 살아 있으니 보유는 유지하되 신용 한도가 <b>${L.cr.toFixed(0)}%</b>로 조여졌습니다.`,
+    if(L.band>=3&&DB.market.regime==='up'&&!K('hot'+L.band)){
+      const src=fgSet()?`공포탐욕 <b>${DB.market.fg}</b>`:`온도 <b>${tempScore()}/6</b>`;
+      add({sev:L.band===4?3:5,p:L.band===4?14:31,k:'hot'+L.band,tag:`시계추 · ${TEMP_NAME[L.band]} 구간`,n:'시장 전체',
+        d:`${src} — 시계추가 ${TEMP_NAME[L.band]} 쪽에 있습니다. 추세는 살아 있으니 보유는 유지하되, 신용 한도가 <b>${L.cr.toFixed(0)}%</b>, 종목당 상한이 <b>${entryCap(false)}%</b>로 조여졌습니다.`,
         q:'"시계추는 반드시 중앙을 지나 반대편으로 간다." — 하워드 막스'});
+    }
+    if(L.band<=1&&DB.market.regime==='up'&&!K('cold'+L.band)){
+      add({sev:4,p:24,k:'cold'+L.band,tag:`시계추 · ${TEMP_NAME[L.band]} 구간`,n:'시장 전체',
+        d:`상승 추세인데 시장은 ${TEMP_NAME[L.band]} 상태입니다. 막스가 말하는 <b>가장 좋은 매수 구간</b>입니다 — 종목당 상한이 <b>${entryCap(false)}%</b>까지 열려 있습니다. 규칙을 통과하는 종목이 있으면 평소보다 크게 잡아도 됩니다.`});
+    }
+
+    /* ── 섹터 배분 ── */
+    const SS=sectorState();
+    for(const r of SS.rows){
+      if(!r.target)continue;
+      if(r.gap>SECTOR_TOL&&!K('sec'+r.name+Math.round(r.w))){
+        add({sev:3,p:12.5,k:'sec'+r.name+Math.round(r.w),tag:'섹터 목표 초과',n:r.name,
+          d:`<b>${esc(r.name)}</b>가 <b>${r.w.toFixed(1)}%</b>로 목표 <b>${r.target}%</b>를 <b>${r.gap.toFixed(1)}%p</b> 넘었습니다. 약 <b>${won((r.gap/100)*t.total)}원</b>어치가 초과분입니다. 이 섹터에서 가장 약한 종목부터 줄이세요.`});
+      }else if(r.short>0&&r.gap<-SECTOR_TOL&&!K('secs'+r.name+r.short)){
+        add({sev:5,p:33,k:'secs'+r.name+r.short,tag:'섹터 종목 부족',n:r.name,
+          d:`<b>${esc(r.name)}</b> 목표 <b>${r.target}%</b>를 종목당 상한 <b>${SS.cap}%</b> 안에서 채우려면 최소 <b>${r.need}종목</b>이 필요합니다. 지금 <b>${r.n}종목</b>이니 <b>${r.short}개</b>를 더 찾거나 목표를 낮추세요. 한 종목을 키워서 채우는 것은 규칙 위반입니다.`});
+      }
+    }
+    const topSec=SS.rows[0];
+    if(topSec&&topSec.w>=CORR_WARN&&t.total>0&&!K('corr'+Math.round(topSec.w/5))){
+      const hit=topSec.val*SECTOR_SHOCK/100;
+      add({sev:3,p:13.5,k:'corr'+Math.round(topSec.w/5),tag:'상관 위험',n:topSec.name,
+        d:`<b>${esc(topSec.name)}</b> 하나가 <b>${topSec.w.toFixed(1)}%</b>입니다. 이 섹터가 하루 <b>${SECTOR_SHOCK}%</b> 빠지면 계좌는 <b>${won(hit)}원</b>(<b>${(hit/t.total*100).toFixed(1)}%</b>) 줄고, 종목별 손절이 <b>같은 날 동시에</b> 발동합니다. 종목을 나눠도 사라지지 않는 위험이니, 감당 가능한 크기인지 확인하세요.`});
     }
   }else if(!K('nomarket')){
     add({sev:2,p:0.5,k:'nomarket',tag:'시장 국면 미설정',n:'설정 필요',
@@ -2773,7 +3127,14 @@ const GUIDE=[
 <div class="box key"><b>국면 × 온도를 정하면 세 가지가 한꺼번에 정해집니다.</b><br>
 ① 주식 노출 한도 ② 신용 한도 ③ <b>목표 현금 비중</b>. 셋 다 시장 탭 안에서 바로 확인됩니다.</div>
 
-<h4>2-1. 적정 현금 비중 확인</h4>
+<h4>2-1. 공포탐욕지수</h4>
+<p>0~100 숫자 하나로 시장 온도를 잽니다. 낮을수록 공포, 높을수록 탐욕이고 <b>극공포·공포·중립·탐욕·극탐욕</b> 5단계로 나뉩니다.</p>
+<div class="box key"><b>이 숫자 하나가 네 가지를 동시에 움직입니다.</b><br>
+주식 노출 한도 · 신용 한도 · 목표 현금비중 · <b>종목당 진입 상한</b>. 상승 추세인데 극공포면 종목당 12%까지 열리고, 극탐욕이면 6%로 조여집니다.</div>
+<p><b>출처를 하나로 고정하세요.</b> 오늘은 A사이트, 내일은 B사이트를 보면 숫자가 튀어서 기준선이 무의미해집니다. 매일 같은 곳에서 같은 시각에 확인하는 것이 값 자체의 정확도보다 중요합니다.</p>
+<p>지수를 넣지 않으면 아래 <b>체크리스트 6문항</b>이 대신 온도를 잽니다. 둘 중 하나만 쓰면 됩니다.</p>
+
+<h4>2-2. 적정 현금 비중 확인</h4>
 <p>시장 탭의 <b>적정 현금 비중</b> 카드가 지금 국면에서 들고 있어야 할 현금을 알려줍니다. 게이지의 초록 띠 안에 들어와 있으면 정상입니다.</p>
 <p>기본값은 상승장에서 낮고 하락장에서 높게(최대 80%) 잡혀 있습니다. 표의 숫자를 직접 고쳐 자신의 기준으로 바꿀 수 있고, 바꾸면 다른 기기에도 함께 반영됩니다.</p>
 <div class="box">목표보다 <b>5%p 이상 모자라면</b> 알림이 뜨고, <b>10%p 이상 모자라면</b> 매수 화면이 경고로 잠깁니다. 반대로 목표보다 15%p 넘게 많으면 "쓸 여력이 있다"는 기회 알림이 뜹니다.</div>
@@ -2787,6 +3148,15 @@ const GUIDE=[
 <p><b>자산 탭 → 오늘 자산 기록하기</b>. 이 값이 앞으로 드로다운과 신용 한도를 계산하는 출발점이 됩니다.</p>`],
 
 ['매일 하는 일','3분이면 끝납니다',`
+<h4>3. 섹터 배분 — 그룹은 집중, 그룹 안은 분산</h4>
+<p>보유 탭의 <b>섹터 배분</b>에서 주도 섹터의 목표 비중을 정합니다. 반도체를 60% 가져가고 싶으면 60이라고 적으면 됩니다.</p>
+<div class="box key"><b>섹터 60%와 종목당 상한 9%는 충돌하지 않습니다.</b><br>
+60 ÷ 9 = 6.7, 즉 반도체 종목 <b>7개</b>를 들면 알람 없이 60%가 됩니다. 3~4종목으로 60%를 채우려 하면 종목당 15~20%가 되어 경고가 뜹니다.
+그 경고는 "섹터에 베팅하지 마라"가 아니라 <b>"섹터에는 베팅하되 그 안에서 종목을 나눠라"</b>는 뜻입니다. 미너비니가 주도 그룹을 공략하는 방식이 정확히 이것입니다.</div>
+<p>앱은 목표를 정하면 <b>필요한 종목 수를 역산해서</b> 알려줍니다 — "60%를 상한 9%로 채우려면 최소 7종목. 지금 3종목이니 4개를 더 찾거나 목표를 27%로 낮추세요."</p>
+<p>두 상한은 서로 다른 위험을 막습니다. <b>종목당 상한</b>은 한 회사의 사고(실적 쇼크·유상증자·거래정지)를, <b>섹터 상한</b>은 같이 빠지는 상관 위험을 막습니다. 그래서 둘 다 필요합니다.</p>
+<div class="box warn">한 섹터가 40%를 넘으면 <b>상관 위험</b> 경고가 뜹니다. 그 섹터가 하루 10% 빠지면 계좌가 얼마나 줄어드는지, 그리고 종목별 손절이 <b>같은 날 동시에</b> 발동한다는 사실을 숫자로 보여줍니다. 종목을 나눠도 사라지지 않는 위험입니다.</div>
+
 <h4>매일</h4>
 <ol>
 <li><b>알림 탭 → 오늘 밤 정산</b>에서 현재가를 한 화면에 몰아서 넣습니다. 이걸 안 하면 나머지 계산이 전부 어제 값으로 굳습니다.</li>
@@ -2978,7 +3348,7 @@ const GUIDE=[
 <div class="box warn"><b>가장 사고 싶을 때 한도가 가장 조여집니다.</b> 시장이 뜨겁고 내가 잃고 있을 때 레버리지를 줄이는 것 — 이게 이 시스템의 핵심 방어 장치입니다.</div>
 
 <h4>바꾸고 싶다면</h4>
-<p>파일 상단의 <span class="m">ENTRY_CAP</span>, <span class="m">DRIFT_CAP</span>, <span class="m">TARGET_MIN/MAX</span> 숫자를 고치면 됩니다.</p>`],
+<p>파일 상단의 <span class="m">ENTRY_CAP_M</span>(국면×온도 상한표), <span class="m">DRIFT_CAP</span>, <span class="m">TARGET_MIN/MAX</span> 숫자를 고치면 됩니다. 섹터 목표는 앱 안에서 바로 바꿉니다.</p>`],
 
 ['자주 묻는 것','실제로 부딪히는 상황들',`
 <h4>손절선에 닿았는데 좋은 종목입니다</h4>
