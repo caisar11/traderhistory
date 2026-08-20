@@ -788,7 +788,8 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     <div class="legend" style="margin-top:10px">
       <div class="lg"><i style="background:var(--deep)"></i><span class="nm">주식 (신용 차감)</span></div>
       <div class="lg"><i style="background:var(--cash)"></i><span class="nm">현금</span></div>
-      <div class="lg"><i style="background:var(--rise);height:3px;border-radius:2px"></i><span class="nm">투자 원금 (입금−출금) — 막대가 이 선 위에 있으면 그만큼이 이익</span></div>
+      <div class="lg"><i style="background:#B08A3E"></i><span class="nm">누적 인출액 — 빼 쓴 돈도 성과이므로 함께 쌓습니다</span></div>
+      <div class="lg"><i style="background:var(--rise);height:3px;border-radius:2px"></i><span class="nm">투입 원금 — 막대가 이 선 위로 솟은 만큼이 실제로 번 돈</span></div>
       <div class="lg"><i style="background:var(--muted);height:2px;border-radius:2px"></i><span class="nm">계좌 고점</span></div>
     </div>
     <button class="btn ghost" style="margin-top:14px" onclick="snapshot()">오늘 자산 기록하기</button>
@@ -1170,7 +1171,9 @@ function migrate(){
   for(const t of DB.trades){
     if(t.imp&&t.ps===undefined){t.ps=3;ch=true;}
   }
-  if(DB.v!==2){DB.v=2;ch=true;}
+  // 구버전의 고점 래칫(DB.peak)은 신용 회계 오류로 부풀려진 값이 굳어 있을 수 있다.
+  // 이제 고점은 스냅샷에서 직접 구하므로 래칫을 비운다.
+  if(DB.v!==3){if(DB.peak){DB.peak=0;}DB.v=3;ch=true;}
   if(ch)save();
   return ch;
 }
@@ -1248,7 +1251,8 @@ function exportCSV(){
 }
 function renderDataCard(){
   const pv=$('peakVal');
-  if(pv)pv.textContent=won(peakEquity())+'원'+(DB.peakFrom?` (${DB.peakFrom} 이후)`:'');
+  if(pv){const P=peakInfo();
+    pv.textContent=won(P.val)+'원 · '+P.date+(DB.peakFrom?` (${DB.peakFrom} 이후 기준)`:'');}
   const as=$('autoSnap');
   if(as)as.checked=DB.autoSnap!==false;
   const box=$('autoSnapBox');
@@ -1289,7 +1293,8 @@ function creditAlloc(){
   const used={},repay={},S={};
   const ts=[...DB.trades].sort((a,b)=>a.date.localeCompare(b.date)||String(a.id).localeCompare(String(b.id)));
   for(const t of ts){
-    const k=t.name.trim();
+    const k=(t.name||'').trim();
+    if(!k)continue;
     if(!S[k])S[k]={lots:[],cashQty:0};
     const s=S[k];
     if(t.type==='buy'){
@@ -1332,7 +1337,8 @@ function holdings(){
   const m={};
   const ts=[...DB.trades].sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
   for(const t of ts){
-    const k=t.name.trim();
+    const k=(t.name||'').trim();
+    if(!k)continue;
     if(!m[k])m[k]={name:k,qty:0,cost:0,cq:0,ccost:0,buys:0,first:0,exits:[],acc:{}};
     const h=m[k];
     if(t.type==='buy'){
@@ -1514,17 +1520,55 @@ function cashState(){
     need:(target-now)/100*t.total};          // 목표까지 확보해야 할 현금(원)
 }
 
-function peakEquity(){
-  const t=totals();
-  const from=DB.peakFrom||'';
-  const ss=DB.snaps.filter(s=>!from||s.date>=from).map(s=>s.total);
-  const p=Math.max(DB.peak||0,...(ss.length?ss:[0]),t.total);
-  return p||t.total;
+/* 외부에서 들어오고 나간 돈.
+   입금·출금은 그대로 세고, 잔액 보정(adj)은 매매로 설명되지 않는 차액만큼을 입출금으로 본다.
+   일괄 입력의 예수금도 adj로 기록되므로 이 처리가 없으면 원금이 0으로 잡힌다. */
+function capitalFlow(){
+  const rank=e=>e.k==='cash'?0:1;          // 같은 날이면 현금 이동을 먼저 반영
+  const ev=[];
+  for(const x of DB.cash)ev.push({d:x.date,k:'cash',x});
+  for(const t of DB.trades)ev.push({d:t.date,k:'trade',t});
+  ev.sort((a,b)=>a.d.localeCompare(b.d)||rank(a)-rank(b));
+  const {repay}=creditAlloc();
+  const bal={};const marks=[];
+  let inS=0,outS=0;
+  const touch=a=>{if(bal[a]===undefined)bal[a]=0;};
+  for(const e of ev){
+    if(e.k==='cash'){
+      const a=e.x.account||'미지정';touch(a);
+      if(e.x.type==='in'){bal[a]+=e.x.amt;inS+=e.x.amt;}
+      else if(e.x.type==='out'){bal[a]-=e.x.amt;outS+=e.x.amt;}
+      else{const d=e.x.amt-bal[a];bal[a]=e.x.amt;if(d>0)inS+=d;else outS+=-d;}
+    }else{
+      const t=e.t,a=t.account||'미지정';touch(a);
+      if(t.type==='buy'){if(!t.imp&&!t.credit)bal[a]-=t.qty*t.price;}
+      else bal[a]+=t.qty*t.price-(repay[t.id]||0);
+    }
+    marks.push({d:e.d,inS,outS});
+  }
+  const at=date=>{
+    let r={inS:0,outS:0};
+    for(const m of marks){if(m.d<=date)r={inS:m.inS,outS:m.outS};else break;}
+    return r;
+  };
+  return {marks,inS,outS,at,net:inS-outS};
 }
+
+/* 고점 — 기록된 스냅샷과 현재 자산 중 최대. 잘못 기록된 값은 그 기록을 지우면 함께 사라진다. */
+function peakInfo(){
+  const t=totals(),from=DB.peakFrom||'';
+  let val=t.total,date=today();
+  for(const s of DB.snaps){
+    if(from&&s.date<from)continue;
+    if(s.total>val){val=s.total;date=s.date;}
+  }
+  return {val:val||t.total,date};
+}
+function peakEquity(){return peakInfo().val;}
 function resetPeak(){
   const t=totals();
   if(!confirm(`계좌 고점을 지금 자산 ${won(t.total)}원으로 재설정할까요?\n이전 고점 기록은 드로다운 계산에서 제외됩니다.`))return;
-  DB.peak=t.total;DB.peakFrom=today();save();renderAll();toast('고점을 재설정했습니다');
+  DB.peak=0;DB.peakFrom=today();save();renderAll();toast('고점을 재설정했습니다');
 }
 function setAutoSnap(v){DB.autoSnap=!!v;save();toast(v?'정산 후 자동 기록을 켰습니다':'자동 기록을 껐습니다');}
 function drawdown(){
@@ -2710,7 +2754,6 @@ function snapshot(){
   DB.snaps=DB.snaps.filter(s=>s.date!==d);
   DB.snaps.push({date:d,stock:t.stock-t.debt,cash:t.cash,total:t.total});
   DB.snaps.sort((a,b)=>a.date.localeCompare(b.date));
-  DB.peak=Math.max(DB.peak||0,t.total);
   save();renderAll();toast('오늘 자산을 기록했습니다');
 }
 /* 축 라벨용 짧은 금액 표기 — 1.2억 / 3,400만 / 52만 */
@@ -2746,19 +2789,21 @@ function renderBars(){
     return;
   }
 
+  const F=capitalFlow();
+  const hasPrin=F.inS>0;
+  const outAt=d=>F.at(d).outS;
+  const inAt=d=>F.at(d).inS;
+
   const W=720,H=330,pad={t:16,b:38,l:62,r:16};
   const iw=W-pad.l-pad.r, ih=H-pad.t-pad.b, base=pad.t+ih;
-  const pk=peakEquity();
-  const maxRaw=Math.max(...S.map(s=>Math.max(s.total,(Math.max(s.stock,0)+Math.max(s.cash,0)))),pk>0?pk:0);
+  const P=peakInfo(),pk=P.val;
+  // 막대 높이 = 현재 자산 + 그때까지 인출한 금액 (인출해도 성과가 깎여 보이지 않게)
+  const barTop=s=>Math.max(s.stock,0)+Math.max(s.cash,0)+outAt(s.date);
+  const maxRaw=Math.max(...S.map(s=>Math.max(s.total,barTop(s),inAt(s.date))),pk>0?pk:0);
   const step=niceStep(maxRaw/4);
   const max=Math.max(step*4,step)||1;
   const Y=v=>base-Math.max(0,v)/max*ih;
   const bw=iw/S.length, gap=Math.min(bw*0.28,9), w=Math.max(bw-gap,1.5);
-
-  // 누적 투자 원금(입금-출금) — 막대 높이와의 간격이 곧 실제 수익
-  const principalAt=d=>DB.cash.filter(c=>c.date<=d)
-    .reduce((s,c)=>s+(c.type==='in'?c.amt:c.type==='out'?-c.amt:0),0);
-  const hasPrin=DB.cash.some(c=>c.type==='in'||c.type==='out');
 
   let g='',bars='',line='',dots='';
 
@@ -2769,21 +2814,21 @@ function renderBars(){
     g+=`<text x="${pad.l-10}" y="${y+4}" text-anchor="end" style="font-family:var(--mono);font-size:11.5px;fill:#96A0AC">${shortWon(v)}</text>`;
   }
 
-  // 누적 막대 (현금 아래 · 주식 위)
+  // 누적 막대 — 아래부터 현금 · 주식 · 인출분
   const pts=[];
   S.forEach((s,i)=>{
     const x=pad.l+i*bw+gap/2;
-    const st=Math.max(s.stock,0), ca=Math.max(s.cash,0);
-    const yC=Y(ca), yS=Y(ca+st);
+    const st=Math.max(s.stock,0), ca=Math.max(s.cash,0), ot=outAt(s.date);
+    const yC=Y(ca), yS=Y(ca+st), yO=Y(ca+st+ot);
     const r=Math.min(w/2,2.5);
     if(ca>0)bars+=`<rect x="${x.toFixed(1)}" y="${yC.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(base-yC,0).toFixed(1)}" fill="#0F9D77" opacity=".9"/>`;
-    if(st>0)bars+=`<rect x="${x.toFixed(1)}" y="${yS.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(yC-yS,0).toFixed(1)}" fill="#101419" rx="${r}" ry="${r}"/>`;
-    pts.push([x+w/2, Y(hasPrin?principalAt(s.date):s.total), s]);
+    if(st>0)bars+=`<rect x="${x.toFixed(1)}" y="${yS.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(yC-yS,0).toFixed(1)}" fill="#101419"/>`;
+    if(ot>0)bars+=`<rect x="${x.toFixed(1)}" y="${yO.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(yS-yO,0).toFixed(1)}" fill="#B08A3E" opacity=".85" rx="${r}" ry="${r}"/>`;
+    pts.push([x+w/2, Y(hasPrin?inAt(s.date):s.total), s]);
   });
 
-  // 원금 라인 — 막대가 이 선 위에 있으면 그만큼이 이익
-  // 첫 입금 이전 구간은 원금이 0이라 선을 그리지 않는다 (0에서 수직으로 튀어 보이는 것 방지)
-  const lp=hasPrin?pts.filter(p=>principalAt(p[2].date)>0):pts;
+  // 투입 원금 라인 — 막대가 이 선 위로 솟은 만큼이 실제로 번 돈
+  const lp=hasPrin?pts.filter(p=>inAt(p[2].date)>0):pts;
   if(lp.length>1){
     const d=lp.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
     line+=`<path d="${d}" fill="none" stroke="#D62828" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>`;
@@ -2791,12 +2836,6 @@ function renderBars(){
   if(lp.length){
     const last=lp[lp.length-1];
     dots+=`<circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="5" fill="#fff" stroke="#D62828" stroke-width="2.6"/>`;
-    if(hasPrin){
-      const pr=principalAt(S[S.length-1].date);
-      dots+=`<text x="${(last[0]-10).toFixed(1)}" y="${(last[1]-11).toFixed(1)}" text-anchor="end"
-        style="font-family:var(--mono);font-size:11.5px;fill:#D62828;font-weight:700"
-        stroke="#fff" stroke-width="3.5" paint-order="stroke">원금 ${shortWon(pr)}</text>`;
-    }
   }
 
   // 고점 기준선
@@ -2804,7 +2843,7 @@ function renderBars(){
   if(pk>0&&pk<=max*1.001){
     const y=Y(pk);
     peakLine=`<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${W-pad.r}" y2="${y.toFixed(1)}" stroke="#858E99" stroke-width="1.6" stroke-dasharray="6 5"/>
-      <text x="${W-pad.r}" y="${(y-7).toFixed(1)}" text-anchor="end" style="font-family:var(--mono);font-size:11px;fill:#858E99">고점 ${shortWon(pk)}</text>`;
+      <text x="${W-pad.r}" y="${(y-7).toFixed(1)}" text-anchor="end" style="font-family:var(--mono);font-size:11px;fill:#858E99">고점 ${shortWon(pk)} · ${P.date.slice(5).replace('-','/')}</text>`;
   }
 
   // 날짜 축 — 겹치지 않을 만큼만
@@ -2820,18 +2859,18 @@ function renderBars(){
 
   // 헤더 요약
   const cur=S[S.length-1],first=S[0];
-  const diff=cur.total-first.total, pct=first.total>0?diff/first.total*100:0;
-  const c=diff>0?'up':diff<0?'down':'mut';
+  const diff=cur.total-first.total;
   $('chLab').textContent=`${cur.date} 기준 · ${chartRange?RANGES.find(r=>r[0]===chartRange)[1]:'전체'}`;
   $('chBig').innerHTML=won(cur.total)+'<span style="font-size:16px;font-weight:500;opacity:.6">원</span>';
   if(hasPrin){
-    const pr=principalAt(cur.date), gain=cur.total-pr;
+    const inv=inAt(cur.date), out=outAt(cur.date);
+    const gain=cur.total+out-inv;                 // 인출한 돈도 성과에 포함
     const gc=gain>0?'up':gain<0?'down':'mut';
     $('chDelta').innerHTML=`<span class="${gc}">원금 대비 ${gain>0?'+':''}${won(gain)}원</span>
-      <em>${pr>0?(gain>0?'+':'')+(gain/pr*100).toFixed(2)+'%':''} · ${S.length>1?`기간 ${diff>0?'+':''}${shortWon(diff)}`:'첫 기록'}</em>`;
+      <em>${inv>0?(gain>0?'+':'')+(gain/inv*100).toFixed(2)+'% · ':''}원금 ${shortWon(inv)}${out>0?` · 인출 ${shortWon(out)} 포함`:''}</em>`;
   }else{
     $('chDelta').innerHTML=S.length>1
-      ? `<span class="${c}">${diff>0?'+':''}${won(diff)}원</span><em>${diff>0?'+':''}${pct.toFixed(2)}% · ${S.length}일간</em>`
+      ? `<span class="${diff>0?'up':diff<0?'down':'mut'}">${diff>0?'+':''}${won(diff)}원</span><em>${S.length}일간</em>`
       : `<span class="mut">비교할 이전 기록 없음</span><em>주식 ${shortWon(cur.stock)} · 현금 ${shortWon(cur.cash)}</em>`;
   }
 }
@@ -3193,7 +3232,6 @@ function settleSave(){
     DB.snaps=DB.snaps.filter(s=>s.date!==today());
     DB.snaps.push({date:today(),stock:t.stock-t.debt,cash:t.cash,total:t.total});
     DB.snaps.sort((a,b)=>a.date.localeCompare(b.date));
-    DB.peak=Math.max(DB.peak||0,t.total);
     save();renderAll();auto=true;
   }
   const A=alerts().filter(a=>a.sev<=2).length;
