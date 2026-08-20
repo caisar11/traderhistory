@@ -52,6 +52,16 @@ header{background:var(--deep);color:#fff;padding:20px 0 22px}
 .total{font-size:40px;font-weight:700;margin:6px 0 3px;letter-spacing:-.025em;line-height:1.1}
 .total small{font-size:19px;font-weight:500;opacity:.65;margin-left:4px}
 .delta{font-size:15px;font-weight:600;color:#C9D1DA}
+.acctLine{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:9px;padding-top:9px;border-top:1px solid rgba(255,255,255,.09)}
+.acctLine div{display:flex;align-items:baseline;gap:6px}
+.acctLine span{font-size:11.5px;color:#8C96A3;font-weight:600}
+.acctLine b{font-size:15px;font-weight:700;font-family:var(--mono);color:#E8ECF1;letter-spacing:-.01em}
+.acctLine b.dim{color:#A3ADBA;font-weight:600;font-size:14px}
+.acctBreak{display:flex;align-items:flex-end;gap:9px;margin-top:8px;flex-wrap:wrap}
+.acctBreak > div{display:flex;flex-direction:column;gap:2px}
+.acctBreak span{font-size:11px;color:#79828E;font-weight:600}
+.acctBreak b{font-size:14px;font-weight:700;font-family:var(--mono);color:#C9D1DA;letter-spacing:-.01em}
+.acctBreak .op{font-family:var(--mono);font-size:13px;color:#5B6472;font-weight:700;padding-bottom:1px;flex-direction:row}
 .sumgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#2E353F;border-radius:12px;overflow:hidden;margin-top:16px}
 .sumgrid div{background:var(--deep);padding:12px 9px}
 .sumgrid b{display:block;font-size:17px;font-weight:700;margin-top:4px;font-family:var(--mono);letter-spacing:-.02em}
@@ -489,9 +499,21 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 
 <header>
   <div class="wrap">
-    <div class="eyebrow"><span>총 자산<span class="syncPill" id="hSync">로컬</span></span><span class="regimePill" id="hRegime">국면 미설정</span></div>
+    <div class="eyebrow"><span id="tTotalLab">총 자산 (인출 포함)<span class="syncPill" id="hSync">로컬</span></span><span class="regimePill" id="hRegime">국면 미설정</span></div>
     <div class="total num" id="tTotal">0<small>원</small></div>
-    <div class="delta num" id="tDelta">평가손익 0원</div>
+    <div class="delta num" id="tDelta">원금 대비 0원</div>
+    <div class="acctLine">
+      <div><span>현재 계좌 자산</span><b id="tAcct">0</b></div>
+      <div><span>인출 누적</span><b id="tOut" class="dim">0</b></div>
+      <div><span>원금</span><b id="tBase" class="dim">0</b></div>
+    </div>
+    <div class="acctBreak">
+      <div><span>주식 평가액</span><b id="tStockVal">0</b></div>
+      <div class="op">+</div>
+      <div><span>예수금</span><b id="tCashVal">0</b></div>
+      <div class="op" id="tDebtOp">−</div>
+      <div id="tDebtWrap"><span>신용 융자</span><b id="tDebtVal">0</b></div>
+    </div>
     <div class="sumgrid">
       <div><span>주식 노출</span><b id="tExp">0%</b></div>
       <div><span id="tCashLab">현금</span><b id="tCash">0</b></div>
@@ -815,6 +837,22 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     </div>
     <input type="file" id="impFile" accept="application/json" style="display:none" onchange="importJSON(this)">
     <div class="hint">내보낸 파일은 이 앱의 모든 기록(거래·현금·시세·설정)을 담은 백업입니다. 기기를 바꾸거나 되돌릴 때 가져오기로 복원합니다.</div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+        <span style="font-size:12.5px;font-weight:700;color:var(--ink-2)">원금 기준</span>
+        <b class="num" id="baseVal" style="font-size:15px"></b></div>
+      <div class="row c2">
+        <div><label class="f">기준일</label><input type="date" id="baseDate"></div>
+        <div><label class="f">그날의 총자산</label><input type="number" id="baseAmt" inputmode="numeric" placeholder="0"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn sm ghost" onclick="setBase($('baseDate').value,$('baseAmt').value)">이 값을 원금으로</button>
+        <button class="btn sm ghost" onclick="clearBase()">자동 계산으로</button>
+      </div>
+      <div class="hint">앱을 쓰기 시작한 날의 총자산(주식 평가액 + 예수금)을 넣으세요. 그 이후의 <b>입금은 더하고 출금은 빼서</b> 원금이 관리됩니다.
+        비워두면 일괄 입력분과 입출금 기록으로 자동 계산합니다.</div>
+    </div>
+
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
         <span style="font-size:12.5px;font-weight:700;color:var(--ink-2)">계좌 고점 기준</span>
@@ -1253,6 +1291,13 @@ function exportCSV(){
 }
 function renderDataCard(){
   const pv=$('peakVal');
+  const bv=$('baseVal');
+  if(bv){
+    const F=capitalFlow(),B=F.base;
+    bv.textContent=won(F.inS)+'원'+(B?` · ${B.date} 기준`:' · 자동 계산');
+    if(B){if(!$('baseDate').value)$('baseDate').value=B.date;
+          if(!$('baseAmt').value)$('baseAmt').value=B.amt;}
+  }
   if(pv){const P=peakInfo();
     pv.textContent=won(P.val)+'원 · '+P.date+(DB.peakFrom?` (${DB.peakFrom} 이후 기준)`:'');}
   const as=$('autoSnap');
@@ -1525,6 +1570,11 @@ function cashState(){
 /* 외부에서 들어오고 나간 돈.
    입금·출금은 그대로 세고, 잔액 보정(adj)은 매매로 설명되지 않는 차액만큼을 입출금으로 본다.
    일괄 입력의 예수금도 adj로 기록되므로 이 처리가 없으면 원금이 0으로 잡힌다. */
+/* 원금 기준 — 직접 정해두면 그날 총자산을 원금으로 삼고, 이후 입출금만 가감한다 */
+function baseline(){
+  const b=DB.base;
+  return b&&b.date&&+b.amt>0?{date:b.date,amt:+b.amt}:null;
+}
 function capitalFlow(){
   const rank=e=>e.k==='cash'?0:1;          // 같은 날이면 현금 이동을 먼저 반영
   const ev=[];
@@ -1532,28 +1582,45 @@ function capitalFlow(){
   for(const t of DB.trades)ev.push({d:t.date,k:'trade',t});
   ev.sort((a,b)=>a.d.localeCompare(b.d)||rank(a)-rank(b));
   const {repay}=creditAlloc();
+  const B=baseline();
   const bal={};const marks=[];
-  let inS=0,outS=0;
+  let inS=B?B.amt:0,outS=0;
   const touch=a=>{if(bal[a]===undefined)bal[a]=0;};
   for(const e of ev){
+    // 기준일을 정해뒀다면 그 이전 흐름은 이미 기준 금액에 포함된 것으로 본다
+    const count=!B||e.d>B.date;
     if(e.k==='cash'){
       const a=e.x.account||'미지정';touch(a);
-      if(e.x.type==='in'){bal[a]+=e.x.amt;inS+=e.x.amt;}
-      else if(e.x.type==='out'){bal[a]-=e.x.amt;outS+=e.x.amt;}
-      else{const d=e.x.amt-bal[a];bal[a]=e.x.amt;if(d>0)inS+=d;else outS+=-d;}
+      if(e.x.type==='in'){bal[a]+=e.x.amt;if(count)inS+=e.x.amt;}
+      else if(e.x.type==='out'){bal[a]-=e.x.amt;if(count)outS+=e.x.amt;}
+      else{const d=e.x.amt-bal[a];bal[a]=e.x.amt;if(count){if(d>0)inS+=d;else outS+=-d;}}
     }else{
       const t=e.t,a=t.account||'미지정';touch(a);
-      if(t.type==='buy'){if(!t.imp&&!t.credit)bal[a]-=t.qty*t.price;}
+      if(t.type==='buy'){
+        // 일괄 입력분은 "가지고 들어온 주식" — 현금은 안 나가지만 그만큼이 원금이다
+        // (신용으로 산 것은 빌린 돈이므로 원금이 아니다)
+        if(t.imp){if(!t.credit&&count)inS+=(+t.impVal||t.qty*t.price);}
+        else if(!t.credit)bal[a]-=t.qty*t.price;
+      }
       else bal[a]+=t.qty*t.price-(repay[t.id]||0);
     }
     marks.push({d:e.d,inS,outS});
   }
   const at=date=>{
-    let r={inS:0,outS:0};
+    let r={inS:B?B.amt:0,outS:0};
     for(const m of marks){if(m.d<=date)r={inS:m.inS,outS:m.outS};else break;}
     return r;
   };
-  return {marks,inS,outS,at,net:inS-outS};
+  return {marks,inS,outS,at,net:inS-outS,base:B};
+}
+function setBase(date,amt){
+  const a=+String(amt).replace(/[^0-9.]/g,'');
+  if(!date||!(a>0)){toast('기준일과 금액을 모두 입력하세요');return;}
+  DB.base={date,amt:a};save();renderAll();
+  toast(`${date} 총자산 ${won(a)}원을 원금으로 잡았습니다`);
+}
+function clearBase(){
+  DB.base=null;save();renderAll();toast('원금을 입출금 기록에서 자동 계산합니다');
 }
 
 /* 고점 — 기록된 스냅샷과 현재 자산 중 최대. 잘못 기록된 값은 그 기록을 지우면 함께 사라진다. */
@@ -1624,11 +1691,33 @@ function renderAll(){
   renderEditBanner();renderCashEditBanner();renderDataCard();calcAmt();
 }
 function renderTop(){
-  const t=totals(),L=limits();
-  $('tTotal').innerHTML=won(t.total)+'<small>원</small>';
-  const c=t.pl>0?'up':t.pl<0?'down':'mut';
-  $('tDelta').className='delta num '+c;
-  $('tDelta').textContent='평가손익 '+(t.pl>0?'+':'')+won(t.pl)+'원'+(t.cost>0?'  ('+(t.pl/t.cost*100).toFixed(2)+'%)':'');
+  const t=totals(),L=limits(),F=capitalFlow();
+  // 총 자산 = 주식 + 현금 + 그동안 빼 쓴 돈
+  const gross=t.total+F.outS;
+  $('tTotal').innerHTML=won(gross)+'<small>원</small>';
+  $('tAcct').textContent=won(t.total);
+  $('tStockVal').textContent=won(t.stock);
+  $('tCashVal').textContent=won(t.cash);
+  // 예수금이 음수면 기록이 어딘가 빠진 것 — 조용히 넘기지 않는다
+  $('tCashVal').style.color=t.cash<0?'#FF8A8A':'#C9D1DA';
+  $('tDebtVal').textContent=won(t.debt);
+  const showDebt=t.debt>0.5;
+  $('tDebtWrap').style.display=showDebt?'flex':'none';
+  $('tDebtOp').style.display=showDebt?'block':'none';
+  $('tDebtVal').style.color=showDebt?'#FF9E9E':'#C9D1DA';
+  $('tOut').textContent=won(F.outS);
+  $('tBase').textContent=won(F.inS);
+  if(F.inS>0){
+    const gain=gross-F.inS, c=gain>0?'up':gain<0?'down':'mut';
+    $('tDelta').className='delta num '+c;
+    $('tDelta').textContent='원금 대비 '+(gain>0?'+':'')+won(gain)+'원  ('+(gain/F.inS*100).toFixed(2)+'%)';
+    $('tTotalLab').firstChild.textContent=F.outS>0?'총 자산 (인출 포함)':'총 자산';
+  }else{
+    const c=t.pl>0?'up':t.pl<0?'down':'mut';
+    $('tDelta').className='delta num '+c;
+    $('tDelta').textContent='평가손익 '+(t.pl>0?'+':'')+won(t.pl)+'원'+(t.cost>0?'  ('+(t.pl/t.cost*100).toFixed(2)+'%)':'');
+    $('tTotalLab').firstChild.textContent='총 자산';
+  }
   const pill=$('hRegime');
   if(L.set){pill.textContent=L.regime.n+' · '+TEMP_NAME[L.band];pill.style.background=L.regime.c;pill.style.color='#fff';}
   else{pill.textContent='시장 국면 미설정';pill.style.background='#2B323B';pill.style.color='#8C96A3';}
@@ -2292,7 +2381,8 @@ function applyImport(){
   if(!confirm(`${acc} 계좌에 ${rows.length}종목을 등록합니다.\n분할 ${stage}/3 진행분으로 처리하고 섹터는 ${sec}로 지정합니다.\n일괄 입력분은 현금에서 차감되지 않습니다.\n계속할까요?`))return;
   for(const r of rows){
     DB.trades.push({id:uid(),date,name:r.name,type:'buy',qty:r.qty,price:r.price,
-      credit:r.credit,account:acc,imp:1,stage,ps:stage,reason:'일괄 입력 (기초 잔고)',mood:'',ck:0});
+      credit:r.credit,account:acc,imp:1,stage,ps:stage,impVal:r.qty*r.px,
+      reason:'일괄 입력 (기초 잔고)',mood:'',ck:0});
     DB.prices[r.name]=r.px;
     DB.high[r.name]=Math.max(DB.high[r.name]||0,r.hi||0,r.px,r.price);
     const c=cfg(r.name);
@@ -2574,11 +2664,17 @@ function renderOverview(){
   const el=$('ovBody');if(!el)return;
   $('ovCap').textContent=L.set?`${L.regime.n} · 온도 ${TEMP_NAME[L.band]}`:'국면 미설정';
   const plc=t.pl>0?'up':t.pl<0?'down':'mut';
+  const F=capitalFlow(), gross=t.total+F.outS, gain=gross-F.inS;
+  const gc=F.inS<=0?'mut':gain>0?'up':gain<0?'down':'mut';
   const expOver=L.set&&t.exp>L.exp;
   el.innerHTML=`
-    <div class="ovHead"><span class="l">총 자산</span><span class="v">${won(t.total)}<span style="font-size:15px;font-weight:500;color:var(--muted)">원</span></span></div>
+    <div class="ovHead"><span class="l">총 자산${F.outS>0?' (인출 포함)':''}</span><span class="v">${won(gross)}<span style="font-size:15px;font-weight:500;color:var(--muted)">원</span></span></div>
     <div class="ovGrid">
-      <div><span>평가손익</span><b class="${plc}">${t.pl>0?'+':''}${won(t.pl)}</b>
+      <div><span>현재 계좌 자산</span><b>${won(t.total)}</b>
+        <em>주식 ${won(t.stock)} · 현금 ${won(t.cash)}${t.debt>0?' − 융자 '+won(t.debt):''}</em></div>
+      <div><span>원금 대비 손익</span><b class="${gc}">${F.inS>0?(gain>0?'+':'')+won(gain):'—'}</b>
+        <em>${F.inS>0?'원금 '+won(F.inS)+(F.outS>0?' · 인출 '+won(F.outS):''):'원금 미설정'}</em></div>
+      <div><span>보유 평가손익</span><b class="${plc}">${t.pl>0?'+':''}${won(t.pl)}</b>
         <em>${t.cost>0?(t.pl/t.cost*100).toFixed(2)+'%':'—'}</em></div>
       <div><span>주식 노출</span><b style="color:${expOver?'var(--danger)':'var(--ink)'}">${t.exp.toFixed(1)}%</b>
         <em>${won(t.stock)} / 한도 ${L.set?L.exp+'%':'—'}</em></div>
@@ -2886,10 +2982,9 @@ function renderSnaps(){
     const p=S[i+1];
     const d=p?real(s)-real(p):0, c=d>0?'up':d<0?'down':'mut';
     const out=outAt(s);
-    return `<div class="li"><div><div class="l1">${s.date}
-      ${out>0?'<span class="chip" style="background:#F5EEDC;color:#7A5F1F">인출 포함</span>':''}</div>
-      <div class="l2">주식 ${won(s.stock)} · 현금 ${won(s.cash)}${out>0?` · <span style="color:#7A5F1F">인출 ${won(out)}</span>`:''}</div>
-      ${out>0?`<div class="l3">평가 자산 ${won(s.total)} + 누적 인출 ${won(out)}</div>`:''}
+    return `<div class="li"><div><div class="l1">${s.date}</div>
+      <div class="l2">주식 ${won(s.stock)} · 현금 ${won(s.cash)} · <span style="color:#7A5F1F">인출 ${won(out)}</span></div>
+      <div class="l3">${won(s.stock)} + ${won(s.cash)} + ${won(out)} = <b>${won(real(s))}</b></div>
       <div class="rowbtns"><button onclick="delSnap('${s.date}')">삭제</button></div></div>
       <div class="amt">${won(real(s))}<div class="l2 ${c}" style="margin-top:3px">${p?(d>0?'+':'')+won(d):'—'}</div></div></div>`;
   }).join('');
@@ -3096,6 +3191,10 @@ function alerts(){
         add({sev:5,p:33.5,k:'secnone'+orphan.length,tag:'섹터 미지정',n:`${orphan.length}종목`,
           d:`<b>${orphan.map(h=>esc(h.name)).join(' · ')}</b>의 섹터가 정해지지 않아 섹터 배분에서 '기타'로 잡힙니다. 보유 탭의 각 종목 카드에서 섹터를 골라주세요.`});
       }
+    }
+    if(t.cash<0&&!K('negcash')){
+      add({sev:2,p:9.4,k:'negcash',tag:'예수금이 마이너스',n:'계좌 전체',
+        d:`예수금이 <b>${won(t.cash)}원</b>입니다. 실제로는 있을 수 없는 값이라, 입금이나 매도 기록이 빠졌거나 인출 금액이 잘못 입력됐을 가능성이 큽니다. 현금 관리에서 내역을 확인하고, 실제 잔액을 안다면 <b>잔액 보정</b>으로 맞춰주세요.`});
     }
     const topSec=SS.rows[0];
     if(topSec&&topSec.w>=CORR_WARN&&t.total>0&&!K('corr'+Math.round(topSec.w/5))){
