@@ -801,7 +801,9 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     <div class="stat" id="statBox"></div>
     <div class="hint" id="statNote"></div>
   </div>
-  <div class="card"><h3><i class="tick"></i>기록 내역</h3><div id="snapList"></div></div>
+  <div class="card"><h3><i class="tick"></i>기록 내역</h3>
+    <div class="sub">금액은 <b>그래프 막대와 같은 기준</b>입니다 — 평가 자산에 그때까지 인출한 돈을 더한 값이라, 돈을 빼 써도 성과가 깎여 보이지 않습니다.</div>
+    <div id="snapList"></div></div>
   <div class="card">
     <h3><i class="tick"></i>데이터 · 동기화</h3>
     <div id="syncInfo" class="sub" style="margin-bottom:12px"></div>
@@ -2877,12 +2879,25 @@ function renderBars(){
 function renderSnaps(){
   const S=[...DB.snaps].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20);
   if(!S.length){$('snapList').innerHTML='<div class="empty">아직 기록이 없습니다.</div>';return;}
+  const F=capitalFlow();
+  const outAt=s=>F.at(s.date).outS;
+  const real=s=>s.total+outAt(s);          // 인출한 돈도 성과에 포함 — 그래프 막대와 같은 기준
   $('snapList').innerHTML=S.map((s,i)=>{
-    const p=S[i+1],d=p?s.total-p.total:0,c=d>0?'up':d<0?'down':'mut';
-    return `<div class="li"><div><div class="l1">${s.date}</div>
-      <div class="l2">주식 ${won(s.stock)} · 현금 ${won(s.cash)}</div></div>
-      <div class="amt">${won(s.total)}<div class="l2 ${c}" style="margin-top:3px">${p?(d>0?'+':'')+won(d):'—'}</div></div></div>`;
+    const p=S[i+1];
+    const d=p?real(s)-real(p):0, c=d>0?'up':d<0?'down':'mut';
+    const out=outAt(s);
+    return `<div class="li"><div><div class="l1">${s.date}
+      ${out>0?'<span class="chip" style="background:#F5EEDC;color:#7A5F1F">인출 포함</span>':''}</div>
+      <div class="l2">주식 ${won(s.stock)} · 현금 ${won(s.cash)}${out>0?` · <span style="color:#7A5F1F">인출 ${won(out)}</span>`:''}</div>
+      ${out>0?`<div class="l3">평가 자산 ${won(s.total)} + 누적 인출 ${won(out)}</div>`:''}
+      <div class="rowbtns"><button onclick="delSnap('${s.date}')">삭제</button></div></div>
+      <div class="amt">${won(real(s))}<div class="l2 ${c}" style="margin-top:3px">${p?(d>0?'+':'')+won(d):'—'}</div></div></div>`;
   }).join('');
+}
+function delSnap(date){
+  if(!confirm(`${date} 자산 기록을 지울까요?\n잘못 기록된 값이 고점으로 잡혀 있을 때 사용합니다.`))return;
+  DB.snaps=DB.snaps.filter(s=>s.date!==date);
+  save();renderAll();toast(`${date} 기록을 지웠습니다`);
 }
 function renderStats(){
   const s=realizedStats();
