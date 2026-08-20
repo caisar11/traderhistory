@@ -56,6 +56,8 @@ header{background:var(--deep);color:#fff;padding:20px 0 22px}
 .totalSplit{margin-top:13px;padding-top:12px;border-top:1px solid rgba(255,255,255,.11)}
 .totalSplit .lab{font-size:12px;color:#8C96A3;font-weight:600;letter-spacing:.01em}
 .totalSplit .total{margin:4px 0 3px}
+.total.sub{font-size:29px;letter-spacing:-.02em}
+.total.sub small{font-size:15px}
 .acctLine div{display:flex;align-items:baseline;gap:6px}
 .acctLine span{font-size:11.5px;color:#8C96A3;font-weight:600}
 .acctLine b{font-size:15px;font-weight:700;font-family:var(--mono);color:#E8ECF1;letter-spacing:-.01em}
@@ -337,6 +339,13 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 .ovHead{display:flex;justify-content:space-between;align-items:baseline;padding:2px 2px 12px}
 .ovHead .l{font-size:12.5px;color:var(--muted);font-weight:600}
 .ovHead .v{font-size:27px;font-weight:700;font-family:var(--mono);letter-spacing:-.03em}
+.ovBreak{font-size:12.5px;color:var(--muted);font-family:var(--mono);padding:0 2px 2px;line-height:1.6}
+.ovBreak b{color:var(--ink-2);font-weight:700;margin:0 2px}
+.ovBreak .dgr{color:var(--danger);font-weight:700}
+.ovSplit{margin:12px 0 14px;padding-top:12px;border-top:1px solid var(--line)}
+.ovDelta{font-size:14.5px;font-weight:700;font-family:var(--mono);padding:0 2px}
+.ovDelta em{display:block;font-style:normal;font-size:11.5px;color:var(--muted);font-weight:500;margin-top:3px}
+.ovDelta.mut{color:var(--muted);font-weight:600;font-size:13px}
 
 /* 현금 비중 게이지 */
 .cgWrap{margin:2px 0 4px}
@@ -513,7 +522,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     </div>
     <div class="totalSplit">
       <div class="lab" id="tTotalLab">총 자산 (인출 포함)</div>
-      <div class="total num" id="tTotal">0<small>원</small></div>
+      <div class="total num sub" id="tTotal">0<small>원</small></div>
       <div class="delta num" id="tDelta">원금 대비 0원</div>
       <div class="acctLine">
         <div><span>인출 누적</span><b id="tOut" class="dim">0</b></div>
@@ -1630,25 +1639,30 @@ function clearBase(){
 }
 
 /* 고점 — 기록된 스냅샷과 현재 자산 중 최대. 잘못 기록된 값은 그 기록을 지우면 함께 사라진다. */
+/* 고점·드로다운은 인출 포함 기준으로 잰다.
+   그렇지 않으면 돈을 빼 쓴 것이 '손실'로 잡혀 드로다운이 부풀고,
+   그 값이 신용 한도까지 잠가버린다. */
 function peakInfo(){
-  const t=totals(),from=DB.peakFrom||'';
-  let val=t.total,date=today();
+  const t=totals(),F=capitalFlow(),from=DB.peakFrom||'';
+  const cur=t.total+F.outS;
+  let val=cur,date=today();
   for(const s of DB.snaps){
     if(from&&s.date<from)continue;
-    if(s.total>val){val=s.total;date=s.date;}
+    const r=s.total+F.at(s.date).outS;
+    if(r>val){val=r;date=s.date;}
   }
-  return {val:val||t.total,date};
+  return {val:val||cur,date,cur};
 }
 function peakEquity(){return peakInfo().val;}
 function resetPeak(){
-  const t=totals();
-  if(!confirm(`계좌 고점을 지금 자산 ${won(t.total)}원으로 재설정할까요?\n이전 고점 기록은 드로다운 계산에서 제외됩니다.`))return;
+  const t=totals(),P=peakInfo();
+  if(!confirm(`계좌 고점을 지금 총자산 ${won(P.cur)}원(인출 포함)으로 재설정할까요?\n이전 고점 기록은 드로다운 계산에서 제외됩니다.`))return;
   DB.peak=0;DB.peakFrom=today();save();renderAll();toast('고점을 재설정했습니다');
 }
 function setAutoSnap(v){DB.autoSnap=!!v;save();toast(v?'정산 후 자동 기록을 켰습니다':'자동 기록을 껐습니다');}
 function drawdown(){
-  const t=totals(),p=peakEquity();
-  return p>0?Math.max(0,(p-t.total)/p*100):0;
+  const P=peakInfo();
+  return P.val>0?Math.max(0,(P.val-P.cur)/P.val*100):0;
 }
 function ddFactor(){
   const d=drawdown();
@@ -1741,7 +1755,7 @@ function renderTop(){
   const d=drawdown(),dE=$('tDD');
   dE.textContent='-'+d.toFixed(1)+'%';
   dE.style.color=d>=15?'#FF8A8A':d>=10?'#FFC46B':d>=5?'#FFE08A':'#fff';
-  $('tDDLab').textContent='고점 대비 (×'+ddFactor().toFixed(1)+')';
+  $('tDDLab').textContent='고점 대비'+(F.outS>0?' · 인출 포함':'')+' (×'+ddFactor().toFixed(1)+')';
 }
 function renderNames(){
   $('dlNames').innerHTML=[...new Set(DB.trades.map(t=>t.name))].map(n=>`<option value="${esc(n)}">`).join('');
@@ -2673,13 +2687,18 @@ function renderOverview(){
   const F=capitalFlow(), gross=t.total+F.outS, gain=gross-F.inS;
   const gc=F.inS<=0?'mut':gain>0?'up':gain<0?'down':'mut';
   const expOver=L.set&&t.exp>L.exp;
+  const P=peakInfo();
   el.innerHTML=`
-    <div class="ovHead"><span class="l">총 자산${F.outS>0?' (인출 포함)':''}</span><span class="v">${won(gross)}<span style="font-size:15px;font-weight:500;color:var(--muted)">원</span></span></div>
+    <div class="ovHead"><span class="l">현재 계좌 자산</span><span class="v">${won(t.total)}<span style="font-size:15px;font-weight:500;color:var(--muted)">원</span></span></div>
+    <div class="ovBreak">주식 ${won(t.stock)} <b>+</b> 예수금 <span class="${t.cash<0?'dgr':''}">${won(t.cash)}</span>${t.debt>0?` <b>−</b> 신용 융자 ${won(t.debt)}`:''}</div>
+    <div class="ovSplit">
+      <div class="ovHead" style="padding-bottom:6px">
+        <span class="l">총 자산${F.outS>0?' (인출 포함)':''}</span>
+        <span class="v">${won(gross)}<span style="font-size:15px;font-weight:500;color:var(--muted)">원</span></span></div>
+      <div class="ovDelta ${gc}">${F.inS>0?`원금 대비 ${gain>0?'+':''}${won(gain)}원 (${(gain/F.inS*100).toFixed(2)}%)`:'원금 미설정 — 자산 탭에서 기준을 정하세요'}
+        <em>${F.inS>0?`원금 ${won(F.inS)}${F.outS>0?` · 인출 누적 ${won(F.outS)}`:''}`:''}</em></div>
+    </div>
     <div class="ovGrid">
-      <div><span>현재 계좌 자산</span><b>${won(t.total)}</b>
-        <em>주식 ${won(t.stock)} · 현금 ${won(t.cash)}${t.debt>0?' − 융자 '+won(t.debt):''}</em></div>
-      <div><span>원금 대비 손익</span><b class="${gc}">${F.inS>0?(gain>0?'+':'')+won(gain):'—'}</b>
-        <em>${F.inS>0?'원금 '+won(F.inS)+(F.outS>0?' · 인출 '+won(F.outS):''):'원금 미설정'}</em></div>
       <div><span>보유 평가손익</span><b class="${plc}">${t.pl>0?'+':''}${won(t.pl)}</b>
         <em>${t.cost>0?(t.pl/t.cost*100).toFixed(2)+'%':'—'}</em></div>
       <div><span>주식 노출</span><b style="color:${expOver?'var(--danger)':'var(--ink)'}">${t.exp.toFixed(1)}%</b>
@@ -2689,7 +2708,7 @@ function renderOverview(){
       <div><span>신용 융자</span><b style="color:${L.set&&t.cr>L.cr?'var(--danger)':'var(--ink)'}">${won(t.debt)}</b>
         <em>${t.cr.toFixed(1)}% / 한도 ${L.set?L.cr.toFixed(0)+'%':'—'}</em></div>
       <div><span>고점 대비</span><b style="color:${dd>=10?'var(--danger)':dd>=5?'var(--warn)':'var(--ink)'}">-${dd.toFixed(1)}%</b>
-        <em>고점 ${won(peakEquity())}</em></div>
+        <em>고점 ${won(P.val)} · ${P.date}${F.outS>0?' (인출 포함)':''}</em></div>
       <div><span>보유 종목</span><b>${t.hs.length}<span style="font-size:12px;color:var(--muted);font-weight:500"> / ${TARGET_MIN}~${TARGET_MAX}</span></b>
         <em>${t.hs.filter(h=>h.cq>0).length}종목 신용 포함</em></div>
     </div>`;
