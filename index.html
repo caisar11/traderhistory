@@ -870,6 +870,16 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+        <span style="font-size:12.5px;font-weight:700;color:var(--ink-2)">종목당 매수 한도</span>
+        <b class="num" id="ticketVal" style="font-size:15px"></b></div>
+      <input type="number" id="ticketAmt" inputmode="numeric" placeholder="5000000"
+        onchange="setMaxTicket(this.value)">
+      <div class="hint">비율 상한(국면·온도에 따라 5~12%)과 이 금액 중 <b>작은 쪽</b>이 실제 한도가 됩니다.
+        계좌가 작을 때는 금액이, 커지면 비율이 먼저 걸립니다.</div>
+    </div>
+
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
         <span style="font-size:12.5px;font-weight:700;color:var(--ink-2)">계좌 고점 기준</span>
         <b class="num" id="peakVal" style="font-size:15px"></b></div>
       <button class="btn sm ghost" onclick="resetPeak()">지금 자산으로 고점 재설정</button>
@@ -926,6 +936,36 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 
 <!-- ═══════ 사용 안내 ═══════ -->
 <section class="view" id="v-guide">
+  <div class="card" id="resetCard">
+    <h3><i class="tick" style="background:var(--danger)"></i>처음부터 다시 시작<span class="ckcount" id="resetCnt"></span></h3>
+    <div class="sub">기록된 매매·보유·현금·자산 기록을 <b>모두 지우고</b> 빈 상태로 되돌립니다.
+      계좌를 새로 정리했거나, 잘못 쌓인 기록을 걷어내고 처음부터 넣고 싶을 때 씁니다.</div>
+    <div class="box warn"><b>되돌릴 수 없습니다.</b> 지우기 전에 백업을 먼저 받아두세요.
+      나중에 자산 탭의 <b>가져오기</b>로 그대로 복원할 수 있습니다.</div>
+    <button class="btn ghost" onclick="exportJSON()">먼저 백업 내려받기</button>
+
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
+      <div style="font-size:12.5px;font-weight:700;color:var(--ink-2);margin-bottom:8px">무엇을 지울지 고르세요</div>
+      <label class="cbox"><input type="checkbox" id="rsTrades" checked onchange="renderReset()">
+        <div><b>매매 기록</b><em id="rsTradesN">매수·매도·일괄 입력분 전부</em></div></label>
+      <label class="cbox"><input type="checkbox" id="rsCash" checked onchange="renderReset()">
+        <div><b>현금 내역</b><em id="rsCashN">입금·출금·잔액 보정</em></div></label>
+      <label class="cbox"><input type="checkbox" id="rsSnaps" checked onchange="renderReset()">
+        <div><b>자산 기록</b><em id="rsSnapsN">일별 총자산 · 고점 기준</em></div></label>
+      <label class="cbox"><input type="checkbox" id="rsCfg" onchange="renderReset()">
+        <div><b>종목 설정</b><em>손절 폭 · 섹터 · 피벗 · 현재가 · 고점</em></div></label>
+      <label class="cbox"><input type="checkbox" id="rsRules" onchange="renderReset()">
+        <div><b>내 기준값</b><em>시장 국면 · 공포탐욕지수 · 현금 목표 · 섹터 목표 · 원금 기준</em></div></label>
+    </div>
+
+    <div class="box" id="resetPreview"></div>
+    <label class="cbox" style="border-color:#F0C8C8;background:#FFF7F7">
+      <input type="checkbox" id="rsConfirm" onchange="renderReset()">
+      <div><b>백업을 받았고, 지워도 괜찮습니다</b><em>이 항목을 체크해야 버튼이 열립니다</em></div></label>
+    <button class="btn" id="resetBtn" style="background:var(--danger)" onclick="doReset()" disabled>선택한 기록 지우기</button>
+    <div class="hint">계정과 로그인은 그대로 유지됩니다. 다른 기기에서 같은 계정으로 열면 <b>지운 상태가 그대로 반영</b>됩니다.</div>
+  </div>
+
   <div class="card" style="background:var(--deep);border-color:var(--deep)">
     <div class="eyebrow" style="color:#8C96A3;margin-bottom:6px">사용 설명서</div>
     <div style="color:#fff;font-size:17px;font-weight:700;line-height:1.45;margin-bottom:8px">
@@ -975,6 +1015,7 @@ const ENTRY_CAP_M={
   down   :[ 6, 5,5,5,5]
 };
 const ENTRY_CAP_DEF=8;          // 국면 미설정 시 기본값
+const MAX_TICKET_DEF=5000000;   // 종목당 매수 한도 (원) — 비율과 함께 둘 중 작은 쪽이 적용된다
 const CREDIT_RATIO=0.75;        // 신용 보유 종목은 진입 상한의 75%까지만
 const DRIFT_CAP=15;             // 보유 중 허용 상한 % — 이긴 종목이 커지는 것은 허용
 const CREDIT_DRIFT_CAP=10;      // 신용 보유 종목의 보유 상한 %
@@ -1078,23 +1119,10 @@ const TEMP_Q=[
   ['손실 가능성을 진지하게 말하는 사람이 드물다','아무도 방어를 이야기하지 않는다']
 ];
 const CK_BUY=[
-  ['g','미너비니 · 추세 템플릿'],
-  ['현재가가 150일선과 200일선 위에 있다',''],
-  ['150일선이 200일선 위에 있다',''],
-  ['200일선이 최소 1개월 이상 상승 중이다','4~5개월이면 더 좋다'],
-  ['50일선이 150일선·200일선 위에 있다',''],
-  ['현재가가 50일선 위에 있다',''],
-  ['52주 저가 대비 최소 30% 이상 올라와 있다',''],
-  ['52주 신고가의 25% 이내에 있다','가까울수록 좋다'],
-  ['상대강도(RS)가 시장 상위권이다','70 이상, 이상적으로 80~90'],
-  ['g','미너비니 · 진입 조건'],
-  ['변동성 수축(VCP) 후 피벗을 돌파했다','수축폭이 점점 작아졌는가'],
-  ['돌파 시 거래량이 평균보다 크게 늘었다','수급이 실제로 들어왔는가'],
-  ['손절 폭이 7% 이내에서 설정 가능하다','손절은 비용이 아니라 보험료다'],
-  ['k','하워드 막스 · 2차적 사고'],
-  ['남들이 보지 못하는 무엇을 내가 보는가','1차적 사고로는 초과수익이 나오지 않는다'],
-  ['이 판단이 틀렸을 때 얼마를 잃는가','최악의 경우를 먼저 계산했는가'],
-  ['지금 시장 온도에 비해 이 베팅은 적절한가','시계추가 어디에 있는지 확인했는가']
+  ['손절 폭을 7%로 잡았다','자동으로 채워집니다. 손절은 비용이 아니라 보험료입니다'],
+  ['종목당 매수 한도 500만원 안이다','한 종목이 계좌를 망치게 두지 않습니다'],
+  ['3회 분할(50% + 25% + 25%) 계획대로다','한 번에 다 사지 않습니다'],
+  ['계획한 매매다','충동이 아니라 미리 정해둔 자리에서 삽니다']
 ];
 const CK_SELL=[
   ['g','규칙 확인'],
@@ -1123,7 +1151,7 @@ const MASTERS=[
 const KEY='sepa-journal-v3';
 let DB={trades:[],cash:[],prices:{},high:{},cfg:{},snaps:[],acted:{},accounts:DEF_ACCOUNTS.slice(),
         market:{regime:'',temp:[false,false,false,false,false,false],cash:null,fg:null},
-        sectors:null,
+        sectors:null,maxTicket:MAX_TICKET_DEF,
         peak:0,peakFrom:'',autoSnap:true};
 let side='buy',mood='',checks={},stagePick=0,exitPick='',lotPick='';
 let editId=null;            // 수정 중인 거래 id
@@ -1306,6 +1334,9 @@ function exportCSV(){
 }
 function renderDataCard(){
   const pv=$('peakVal');
+  const tv=$('ticketVal');
+  if(tv){tv.textContent=won(maxTicket())+'원';
+    if(!$('ticketAmt').value)$('ticketAmt').value=maxTicket();}
   const bv=$('baseVal');
   if(bv){
     const F=capitalFlow(),B=F.base;
@@ -1486,6 +1517,16 @@ const tempBand=()=>{
 const TEMP_NAME=FG_BANDS.map(b=>b[2]);
 const TEMP_COLOR=FG_BANDS.map(b=>b[3]);
 
+/* 종목당 매수 한도(원). 비율 상한과 금액 상한 중 작은 쪽이 실제 한도가 된다. */
+function maxTicket(){
+  const v=+DB.maxTicket;
+  return isFinite(v)&&v>0?v:MAX_TICKET_DEF;
+}
+function setMaxTicket(v){
+  const n=+String(v).replace(/[^0-9]/g,'');
+  DB.maxTicket=n>0?n:MAX_TICKET_DEF;
+  save();renderAll();toast(`종목당 한도를 ${won(maxTicket())}원으로 정했습니다`);
+}
 /* — 종목당 진입 상한 — 국면 × 온도로 자동 조절 — */
 function entryCap(credit){
   const r=DB.market.regime;
@@ -1708,7 +1749,7 @@ function renderAll(){
   renderOverview();renderHold();renderPie();renderCreditBar();renderSectors();renderConcentration();renderAccounts();renderCash();fillAccounts();fillSectorSelect();previewImport();
   renderRegime();renderFG();renderTemp();renderPendulum();renderCashTarget();renderExposure();renderMatrix();
   renderRange();renderBars();renderSnaps();renderStats();renderAlerts();renderMasters();renderGuide();renderHistory();renderLots();renderNames();renderSyncInfo();
-  renderEditBanner();renderCashEditBanner();renderDataCard();calcAmt();
+  renderEditBanner();renderCashEditBanner();renderDataCard();renderReset();calcAmt();
 }
 function renderTop(){
   const t=totals(),L=limits(),F=capitalFlow();
@@ -1818,11 +1859,13 @@ function sizeIt(){
   const sec=$('fSector')?$('fSector').value:null;
   const secR=sec?sectorRoom(sec):null;
   const bySec=secR===null?Infinity:secR;
-  const size=Math.max(0,Math.min(byRisk,byWeight,byExp,bySec));
+  const byTicket=Math.max(maxTicket()-heldVal,0);   // 금액 한도도 이미 담은 만큼 차감
+  const size=Math.max(0,Math.min(byRisk,byWeight,byExp,bySec,byTicket));
   const qty=Math.floor(size/pivot);
   let bind=`리스크 ${risk}%`;
-  const m=Math.min(byRisk,byWeight,byExp,bySec);
-  if(m===bySec&&bySec<byRisk)bind=`${sec} 섹터 목표`;
+  const m=Math.min(byRisk,byWeight,byExp,bySec,byTicket);
+  if(m===byTicket&&byTicket<byRisk)bind=`종목당 ${won(maxTicket())}원`;
+  else if(m===bySec&&bySec<byRisk)bind=`${sec} 섹터 목표`;
   else if(m===byExp&&byExp<byRisk)bind='노출 한도';
   else if(m===byWeight&&byWeight<byRisk)bind=`종목당 상한 ${cap}%`;
   window._size=size;
@@ -2027,6 +2070,7 @@ function renderMoods(){
 }
 function setSide(s){
   side=s;checks={};
+  if(s==='buy'&&$('fStop')&&!(+$('fStop').value>0))$('fStop').value=DEF_STOP;
   $('segBuy').className=(s==='buy'?'on buy':'');
   $('segSell').className=(s==='sell'?'on sell':'');
   const b=$('submitBtn');
@@ -3686,6 +3730,50 @@ const TERMS=[
 ['기대값','Expectancy','거래 한 건당 평균적으로 기대되는 손익률. 이 값이 양수여야 매매를 계속할 이유가 있습니다.']
 ];
 
+/* — 처음부터 다시 시작 — */
+function resetPick(){
+  return {trades:$('rsTrades').checked,cash:$('rsCash').checked,snaps:$('rsSnaps').checked,
+          cfg:$('rsCfg').checked,rules:$('rsRules').checked};
+}
+function renderReset(){
+  if(!$('rsTrades'))return;
+  const p=resetPick();
+  $('rsTradesN').textContent=`매수·매도·일괄 입력분 ${DB.trades.length}건`;
+  $('rsCashN').textContent=`입금·출금·잔액 보정 ${DB.cash.length}건`;
+  $('rsSnapsN').textContent=`일별 총자산 ${DB.snaps.length}건 · 고점 기준`;
+  const t=totals();
+  $('resetCnt').textContent=`보유 ${t.hs.length}종목 · 거래 ${DB.trades.length}건`;
+  const picked=Object.entries(p).filter(([,v])=>v).length;
+  const names={trades:'매매 기록',cash:'현금 내역',snaps:'자산 기록',cfg:'종목 설정',rules:'내 기준값'};
+  $('resetPreview').innerHTML=picked
+    ? `지울 항목 — <b>${Object.keys(p).filter(k=>p[k]).map(k=>names[k]).join(' · ')}</b>`
+    : '지울 항목을 하나 이상 선택하세요.';
+  const ok=picked&&$('rsConfirm').checked;
+  $('resetBtn').disabled=!ok;
+  $('resetBtn').textContent=picked?`선택한 ${picked}개 항목 지우기`:'지울 항목을 선택하세요';
+}
+function doReset(){
+  const p=resetPick();
+  if(!Object.values(p).some(Boolean))return;
+  if(!$('rsConfirm').checked)return;
+  const names={trades:'매매 기록',cash:'현금 내역',snaps:'자산 기록',cfg:'종목 설정',rules:'내 기준값'};
+  const list=Object.keys(p).filter(k=>p[k]).map(k=>names[k]).join(', ');
+  if(!confirm(`${list}을(를) 지웁니다.\n되돌릴 수 없습니다. 계속할까요?`))return;
+  if(p.trades)DB.trades=[];
+  if(p.cash)DB.cash=[];
+  if(p.snaps){DB.snaps=[];DB.peak=0;DB.peakFrom='';}
+  if(p.cfg){DB.cfg={};DB.prices={};DB.high={};}
+  if(p.rules){
+    DB.market={regime:'',temp:[false,false,false,false,false,false],cash:null,fg:null};
+    DB.sectors=null;DB.base=null;DB.maxTicket=MAX_TICKET_DEF;
+  }
+  DB.acted={};
+  checks={};mood='';stagePick=0;exitPick='';lotPick='';editId=null;cashEditId=null;
+  $('rsConfirm').checked=false;
+  save();renderAll();
+  toast('지웠습니다. 시장 탭부터 다시 시작하세요');
+  goto('market');
+}
 function renderGuide(){
   $('guideBody').innerHTML=GUIDE.map((g,i)=>`<details class="gd">
     <summary><span class="no">${i+1}</span>
