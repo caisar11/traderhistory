@@ -390,6 +390,23 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 .rowbtns button{background:none;border:0;font:inherit;font-size:12px;cursor:pointer;padding:3px 0 0;
   font-family:var(--sans);color:var(--muted)}
 .rowbtns button.e{color:var(--fall);font-weight:600}
+
+/* 매수 계획 */
+.plan{border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:9px;background:#fff}
+.plan.due{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.plan.late{border-color:#E8D6B0;background:#FFFCF6}
+.plan .ph{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.plan .pn{font-size:15.5px;font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.plan .pv{font-family:var(--mono);font-size:15px;font-weight:700;flex:0 0 auto}
+.plan .pm{display:flex;flex-wrap:wrap;gap:10px;margin-top:7px;font-size:12.5px;font-family:var(--mono);color:var(--muted)}
+.plan .pm b{color:var(--ink)}
+.plan .pmemo{font-size:13px;color:var(--ink-2);margin-top:9px;line-height:1.58;white-space:pre-wrap;
+  padding:10px 11px;background:var(--line-2);border-radius:9px}
+.plan .pacts{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+.planStat{display:flex;gap:1px;background:var(--line);border-radius:10px;overflow:hidden;margin-top:14px}
+.planStat div{flex:1;background:#fff;padding:10px 8px;text-align:center}
+.planStat span{display:block;font-size:11px;color:var(--muted);font-weight:600}
+.planStat b{display:block;font-family:var(--mono);font-size:17px;font-weight:700;margin-top:2px}
 .hint{font-size:12.5px;color:var(--muted);line-height:1.65;margin-top:10px}
 .stat{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border-radius:10px;overflow:hidden}
 .stat div{background:#fff;padding:11px 12px}
@@ -546,6 +563,40 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   <div class="seg">
     <button id="segBuy" class="on buy" onclick="setSide('buy')">매수</button>
     <button id="segSell" onclick="setSide('sell')">매도</button>
+  </div>
+
+  <div class="card" id="preplanCard">
+    <h3><i class="tick"></i>매수 계획<span class="ckcount" id="planCnt"></span></h3>
+    <div class="sub">시장이 닫힌 저녁에 정해두고, 다음날은 <b>정해둔 것만</b> 실행합니다.
+      장중에 떠오른 생각으로 사는 것을 막는 장치입니다.</div>
+    <div id="planToday"></div>
+    <div style="margin-top:14px;padding-top:13px;border-top:1px solid var(--line-2)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px">
+        <span style="font-size:12.5px;font-weight:700;color:var(--ink-2)">새 계획 세우기</span>
+        <button class="lnk" onclick="togglePlanForm()" id="planToggle">열기</button></div>
+      <div id="planForm" style="display:none">
+        <div class="row c2">
+          <div><label class="f">종목명</label><input id="pName" placeholder="종목명" list="dlNames"></div>
+          <div><label class="f">실행 예정일</label><input type="date" id="pDate"></div>
+        </div>
+        <div class="row c2">
+          <div><label class="f">피벗 / 진입가</label><input type="number" id="pPivot" inputmode="numeric" placeholder="0" oninput="planPreview()"></div>
+          <div><label class="f">1차 투입 금액</label><input type="number" id="pAmt" inputmode="numeric" placeholder="0" oninput="planPreview()"></div>
+        </div>
+        <div class="row c2">
+          <div><label class="f">섹터</label><select id="pSector"></select></div>
+          <div><label class="f">손절 폭 %</label><input type="number" id="pStop" inputmode="decimal" value="7" oninput="planPreview()"></div>
+        </div>
+        <label class="cbox" id="pCreditBox"><input type="checkbox" id="pCredit"><div><b>신용으로 산다</b><em>빌린 돈이라는 것을 미리 정해둡니다</em></div></label>
+        <label class="f" style="margin-top:11px">왜 이 종목인가</label>
+        <textarea id="pMemo" style="min-height:70px"
+          placeholder="무엇을 보고 사는가? 어떤 자리에서 사는가? 무엇이 깨지면 틀린 것인가?"></textarea>
+        <div class="hint">이 메모는 다음날 실행할 때 그대로 다시 보여집니다. 그때의 나에게 쓰는 편지라고 생각하세요.</div>
+        <div id="planCalc"></div>
+        <button class="btn ghost" onclick="savePlan()" id="planSaveBtn">계획 저장</button>
+      </div>
+    </div>
+    <div id="planStats"></div>
   </div>
 
   <div class="card" id="gateCard"></div>
@@ -963,6 +1014,12 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
       <input type="checkbox" id="rsConfirm" onchange="renderReset()">
       <div><b>백업을 받았고, 지워도 괜찮습니다</b><em>이 항목을 체크해야 버튼이 열립니다</em></div></label>
     <button class="btn" id="resetBtn" style="background:var(--danger)" onclick="doReset()" disabled>선택한 기록 지우기</button>
+    <div class="box key" style="margin-top:14px"><b>지운 뒤에는 이 순서로 넣으세요.</b><br>
+      ① 보유 탭 → <b>현금 관리</b>에서 계좌 예수금을 <b>입금</b>으로 기록<br>
+      ② 이미 들고 있는 종목이 있다면 <b>보유 종목 일괄 입력</b><br>
+      ③ 시장 탭에서 <b>국면과 공포탐욕지수</b> 설정<br>
+      ④ 자산 탭 → <b>원금 기준</b>에 오늘 총자산 입력<br>
+      예수금을 건너뛰고 매수부터 기록하면 <b>예수금이 마이너스로 잡힙니다.</b></div>
     <div class="hint">계정과 로그인은 그대로 유지됩니다. 다른 기기에서 같은 계정으로 열면 <b>지운 상태가 그대로 반영</b>됩니다.</div>
   </div>
 
@@ -1016,6 +1073,7 @@ const ENTRY_CAP_M={
 };
 const ENTRY_CAP_DEF=8;          // 국면 미설정 시 기본값
 const MAX_TICKET_DEF=5000000;   // 종목당 매수 한도 (원) — 비율과 함께 둘 중 작은 쪽이 적용된다
+const PLAN_EXPIRE=5;            // 계획이 살아 있는 기간 (일). 지나면 근거가 낡은 것으로 본다
 const CREDIT_RATIO=0.75;        // 신용 보유 종목은 진입 상한의 75%까지만
 const DRIFT_CAP=15;             // 보유 중 허용 상한 % — 이긴 종목이 커지는 것은 허용
 const CREDIT_DRIFT_CAP=10;      // 신용 보유 종목의 보유 상한 %
@@ -1151,7 +1209,7 @@ const MASTERS=[
 const KEY='sepa-journal-v3';
 let DB={trades:[],cash:[],prices:{},high:{},cfg:{},snaps:[],acted:{},accounts:DEF_ACCOUNTS.slice(),
         market:{regime:'',temp:[false,false,false,false,false,false],cash:null,fg:null},
-        sectors:null,maxTicket:MAX_TICKET_DEF,
+        sectors:null,maxTicket:MAX_TICKET_DEF,plans:[],
         peak:0,peakFrom:'',autoSnap:true};
 let side='buy',mood='',checks={},stagePick=0,exitPick='',lotPick='';
 let editId=null;            // 수정 중인 거래 id
@@ -1749,7 +1807,7 @@ function renderAll(){
   renderOverview();renderHold();renderPie();renderCreditBar();renderSectors();renderConcentration();renderAccounts();renderCash();fillAccounts();fillSectorSelect();previewImport();
   renderRegime();renderFG();renderTemp();renderPendulum();renderCashTarget();renderExposure();renderMatrix();
   renderRange();renderBars();renderSnaps();renderStats();renderAlerts();renderMasters();renderGuide();renderHistory();renderLots();renderNames();renderSyncInfo();
-  renderEditBanner();renderCashEditBanner();renderDataCard();renderReset();calcAmt();
+  renderEditBanner();renderCashEditBanner();renderDataCard();renderReset();renderPlans();calcAmt();
 }
 function renderTop(){
   const t=totals(),L=limits(),F=capitalFlow();
@@ -2138,6 +2196,17 @@ function saveTrade(){
     const cur=t.hs.find(h=>h.name===name);
     const after=((cur?cur.val:0)+qty*price)/(t.total||1)*100;
     const expAfter=(t.stock+qty*price)/(t.total||1)*100;
+    const P=planFor(name);
+    if(!P&&!editId){
+      const F2=futurePlans().find(x=>x.name===name);
+      const msg=F2
+        ? `${name}은(는) ${F2.date} 실행 예정으로 잡아둔 계획입니다.\n오늘은 계획일이 아닙니다.\n\n그래도 지금 사시겠습니까?`
+        : `${name}은(는) 오늘 실행할 계획에 없는 종목입니다.\n\n장중에 떠오른 생각으로 사는 것이 아닌지 한 번만 더 생각해보세요.\n정말 사야 한다면 오늘 저녁에 왜 계획에 없었는지 적어두는 편이 좋습니다.\n\n그래도 기록할까요?`;
+      if(!confirm(msg))return;
+    }
+    if(!DB.cash.length&&!confirm('입금 기록이 없어 예수금이 0원입니다.\n이대로 기록하면 예수금이 마이너스로 잡힙니다.\n\n보유 탭 → 현금 관리에서 예수금을 먼저 넣는 편이 좋습니다.\n그래도 기록할까요?'))return;
+    else if(DB.cash.length&&!$('fCredit').checked&&t.cash<qty*price
+        &&!confirm(`예수금 ${won(t.cash)}원으로 ${won(qty*price)}원을 사는 것으로 기록됩니다.\n예수금이 마이너스가 됩니다. 입금 기록이 빠지지 않았는지 확인해주세요.\n\n그래도 기록할까요?`))return;
     const eCap2=entryCap($('fCredit').checked);
     if(t.total>0&&after>eCap2&&!confirm(`매수 후 비중이 ${after.toFixed(1)}%로 종목당 상한 ${eCap2}%를 넘습니다.\n같은 섹터를 크게 가져가려면 종목 수를 늘리는 편이 낫습니다.\n그래도 기록할까요?`))return;
     if(L.set&&expAfter>L.exp&&!confirm(`전체 노출이 ${expAfter.toFixed(0)}%로 한도 ${L.exp}%를 넘습니다.\n그래도 기록할까요?`))return;
@@ -2160,6 +2229,15 @@ function saveTrade(){
     exit:side==='sell'?exitPick:'',lot:side==='sell'?lotPick:'',
     reason:$('fReason').value.trim(),mood,ck:n};
 
+  // 계획과 대조 — 저장 전에 연결해야 기록에 남는다
+  if(side==='buy'&&!editId){
+    const P2=planFor(name);
+    if(P2){
+      rec.planId=P2.id;
+      P2.status='done';P2.closedAt=today();
+    }
+  }
+
   if(editId){
     const i=DB.trades.findIndex(x=>x.id===editId);
     if(i<0){toast('원본 기록을 찾지 못했습니다');editId=null;renderAll();return;}
@@ -2167,7 +2245,6 @@ function saveTrade(){
   }else{
     DB.trades.push({id:uid(),...rec});
   }
-
   if(side==='buy'){const c=cfg(name);c.stop=+$('fStop').value||DEF_STOP;c.risk=+$('fRisk').value||DEF_RISK;
     if(+$('fPivot').value)c.pivot=+$('fPivot').value;
     if($('fSector')&&$('fSector').value)c.sector=$('fSector').value;}
@@ -2177,7 +2254,7 @@ function saveTrade(){
   const was=editId;
   ['fQty','fPrice','fReason'].forEach(i=>$(i).value='');
   $('fCredit').checked=false;$('creditBox').classList.remove('on');
-  checks={};mood='';stagePick=0;exitPick='';lotPick='';editId=null;
+  checks={};mood='';stagePick=0;exitPick='';lotPick='';editId=null;window._planId=null;
   renderAll();
   toast(was?'거래 기록을 수정했습니다':(side==='buy'?'매수 기록을 저장했습니다':'매도 기록을 저장했습니다'));
 }
@@ -3261,10 +3338,6 @@ function alerts(){
           d:`<b>${orphan.map(h=>esc(h.name)).join(' · ')}</b>의 섹터가 정해지지 않아 섹터 배분에서 '기타'로 잡힙니다. 보유 탭의 각 종목 카드에서 섹터를 골라주세요.`});
       }
     }
-    if(t.cash<0&&!K('negcash')){
-      add({sev:2,p:9.4,k:'negcash',tag:'예수금이 마이너스',n:'계좌 전체',
-        d:`예수금이 <b>${won(t.cash)}원</b>입니다. 실제로는 있을 수 없는 값이라, 입금이나 매도 기록이 빠졌거나 인출 금액이 잘못 입력됐을 가능성이 큽니다. 현금 관리에서 내역을 확인하고, 실제 잔액을 안다면 <b>잔액 보정</b>으로 맞춰주세요.`});
-    }
     const topSec=SS.rows[0];
     if(topSec&&topSec.w>=CORR_WARN&&t.total>0&&!K('corr'+Math.round(topSec.w/5))){
       const hit=topSec.val*SECTOR_SHOCK/100;
@@ -3274,6 +3347,30 @@ function alerts(){
   }else if(!K('nomarket')){
     add({sev:2,p:0.5,k:'nomarket',tag:'시장 국면 미설정',n:'설정 필요',
       d:'시장 탭에서 국면과 온도를 설정해야 노출·신용 한도가 계산되고 매수 화면이 열립니다.'});
+  }
+
+  const OP=openPlans();
+  if(OP.length&&!K('plan'+today()+OP.length)){
+    add({sev:4,p:20,k:'plan'+today()+OP.length,tag:'오늘 실행할 계획',n:`${OP.length}건`,
+      d:`<b>${OP.map(p=>esc(p.name)).join(' · ')}</b> — 전날 세워둔 계획입니다. 매매 탭에서 <b>이 계획대로 매수</b>를 누르면 정해둔 값이 그대로 채워집니다.`});
+  }
+  const PS=planStats();
+  if(PS.unplanned>=3&&PS.disc<50&&!K('disc'+PS.unplanned)){
+    add({sev:3,p:15,k:'disc'+PS.unplanned,tag:'계획 없이 산 매매가 많습니다',n:'규율',
+      d:`최근 30일 동안 계획 없이 산 매매가 <b>${PS.unplanned}건</b>, 규율 준수율이 <b>${PS.disc.toFixed(0)}%</b>입니다. 저녁에 정한 것을 장중에 뒤집고 있다는 뜻입니다. 무엇이 계획을 흔드는지 적어보세요.`,
+      q:'"규칙을 지키는 것이 규칙을 만드는 것보다 어렵다." — 마크 미너비니'});
+  }
+
+  /* 예수금 문제는 국면 설정 여부와 무관하게 항상 확인한다 —
+     처음 시작할 때 가장 먼저 걸리는 함정이기 때문이다. */
+  if(!DB.cash.length&&DB.trades.length&&!K('nocash')){
+    add({sev:1,p:0.4,k:'nocash',tag:'예수금을 먼저 입력하세요',n:'설정 필요',
+      d:`입금 기록이 하나도 없는데 매매 기록만 있습니다. 그래서 예수금이 <b>${won(t.cash)}원</b>으로 계산되고 총자산도 실제와 맞지 않습니다.<br>
+         보유 탭의 <b>현금 관리</b>에서 계좌에 넣어둔 돈을 <b>입금</b>으로 먼저 기록하세요. 이미 주식을 들고 있었다면 <b>잔액 보정</b>으로 지금 예수금을 그대로 넣어도 됩니다.`});
+  }else if(t.cash<0&&!K('negcash'+Math.round(t.cash/100000))){
+    add({sev:1,p:0.45,k:'negcash'+Math.round(t.cash/100000),tag:'예수금이 마이너스',n:'계좌 전체',
+      d:`예수금이 <b>${won(t.cash)}원</b>입니다. 실제로는 있을 수 없는 값이라 입금이나 매도 기록이 빠졌거나, 인출 금액이 잘못 들어갔을 가능성이 큽니다.<br>
+         현금 관리에서 내역을 확인하고, 지금 실제 예수금을 아신다면 <b>잔액 보정</b>으로 한 번에 맞추세요.`});
   }
   if(C.sorted&&C.sorted.length>=3&&C.top3>TOP3_CAP&&!K('top3'+Math.round(C.top3))){
     add({sev:3,p:14,k:'top3'+Math.round(C.top3),tag:'상위 3종목 집중',n:'포트폴리오',
@@ -3730,6 +3827,179 @@ const TERMS=[
 ['기대값','Expectancy','거래 한 건당 평균적으로 기대되는 손익률. 이 값이 양수여야 매매를 계속할 이유가 있습니다.']
 ];
 
+/* ══════ 매수 계획 ══════
+   전날 저녁에 정해두고 다음날 그대로만 실행한다.
+   계획을 '언제 세웠는지'까지 남겨서, 장중에 급조한 계획과 구분한다. */
+function nextTradingDay(){
+  const d=new Date(today()+'T00:00:00');
+  do{d.setDate(d.getDate()+1);}while(d.getDay()===0||d.getDay()===6);
+  return d.toISOString().slice(0,10);
+}
+function plans(){return Array.isArray(DB.plans)?DB.plans:(DB.plans=[]);}
+function planAge(p){
+  return Math.floor((new Date(today()+'T00:00:00')-new Date(p.date+'T00:00:00'))/86400000);
+}
+/* 오늘 실행할 수 있는 계획 — 예정일이 지났거나 오늘인 것 */
+function openPlans(){
+  return plans().filter(p=>p.status==='open'&&p.date<=today()&&planAge(p)<=PLAN_EXPIRE)
+    .sort((a,b)=>a.date.localeCompare(b.date));
+}
+function futurePlans(){
+  return plans().filter(p=>p.status==='open'&&p.date>today()).sort((a,b)=>a.date.localeCompare(b.date));
+}
+function planFor(name){
+  const n=(name||'').trim();
+  return openPlans().find(p=>p.name===n)||null;
+}
+function togglePlanForm(){
+  const b=$('planForm'),on=b.style.display!=='none';
+  b.style.display=on?'none':'block';
+  $('planToggle').textContent=on?'열기':'닫기';
+  if(!on){
+    if(!$('pDate').value)$('pDate').value=nextTradingDay();
+    fillSectorSelect();planPreview();
+  }
+}
+function planPreview(){
+  const pivot=+$('pPivot').value||0, amt=+$('pAmt').value||0, stop=+$('pStop').value||DEF_STOP;
+  const el=$('planCalc');if(!el)return;
+  if(!(pivot>0)||!(amt>0)){el.innerHTML='';return;}
+  const qty=Math.floor(amt/pivot);
+  const stopPx=pivot*(1-stop/100);
+  const t=totals();
+  const over=amt>maxTicket();
+  el.innerHTML=`<div class="calc" style="margin:12px 0 0">
+    <div><span>예상 수량</span><b>${won(qty)}주</b><em>${won(qty*pivot)}원</em></div>
+    <div><span>손절가</span><b class="dgr">${won(stopPx)}</b><em>-${stop}%</em></div>
+    <div><span>최대 손실</span><b class="dgr">${won(qty*(pivot-stopPx))}</b>
+      <em>${t.total>0?'계좌의 '+(qty*(pivot-stopPx)/t.total*100).toFixed(2)+'%':'—'}</em></div>
+    <div><span>3분할 계획</span><b style="font-size:14px">${won(Math.round(amt*BUY_SPLIT[0]/100))}</b>
+      <em>1차 ${BUY_SPLIT[0]}% · 이후 ${BUY_SPLIT[1]}/${BUY_SPLIT[2]}%</em></div>
+    </div>
+    ${over?`<div class="box warn" style="margin-top:10px">종목당 한도 <b>${won(maxTicket())}원</b>을 넘습니다. 금액을 줄이거나 자산 탭에서 한도를 조정하세요.</div>`:''}`;
+}
+function savePlan(){
+  const name=$('pName').value.trim();
+  if(!name){toast('종목명을 입력하세요');return;}
+  const pivot=+$('pPivot').value||0, amt=+$('pAmt').value||0;
+  if(!(pivot>0)){toast('피벗 / 진입가를 입력하세요');return;}
+  if(!(amt>0)){toast('투입 금액을 입력하세요');return;}
+  const date=$('pDate').value||nextTradingDay();
+  const memo=$('pMemo').value.trim();
+  if(!memo&&!confirm('근거를 적지 않았습니다.\n다음날의 나는 왜 샀는지 기억하지 못합니다.\n그래도 저장할까요?'))return;
+  plans().push({id:uid(),name,pivot,amt,stop:+$('pStop').value||DEF_STOP,
+    sector:$('pSector').value||'기타',credit:$('pCredit').checked,
+    memo,date,madeAt:today(),status:'open'});
+  save();
+  ['pName','pPivot','pAmt','pMemo'].forEach(i=>$(i).value='');
+  $('pCredit').checked=false;
+  renderAll();
+  toast(`${name} · ${date} 계획을 세웠습니다`);
+}
+function delPlan(id){
+  if(!confirm('이 계획을 지울까요?'))return;
+  DB.plans=plans().filter(p=>p.id!==id);save();renderAll();toast('지웠습니다');
+}
+function skipPlan(id){
+  const p=plans().find(x=>x.id===id);if(!p)return;
+  const why=prompt(`${p.name} — 왜 실행하지 않았나요?`,'');
+  if(why===null)return;
+  p.status='skip';p.why=why.trim();p.closedAt=today();
+  save();renderAll();toast('건너뛴 것으로 기록했습니다');
+}
+/* 계획을 매수 폼으로 옮긴다 */
+function applyPlan(id){
+  const p=plans().find(x=>x.id===id);
+  if(!p){toast('계획을 찾지 못했습니다');return;}
+  setSide('buy');
+  $('fName').value=p.name;
+  $('fPivot').value=p.pivot;
+  $('fStop').value=p.stop||DEF_STOP;
+  $('fCredit').checked=!!p.credit;
+  $('creditBox').classList.toggle('on',!!p.credit);
+  onNameChange();
+  if(p.sector&&$('fSector'))$('fSector').value=p.sector;
+  const qty=Math.floor((p.amt*BUY_SPLIT[0]/100)/p.pivot);
+  $('fQty').value=qty>0?qty:'';
+  $('fPrice').value=p.pivot;
+  $('fReason').value=p.memo||'';
+  window._planId=p.id;
+  calcAmt();renderPlans();
+  window.scrollTo({top:0,behavior:'smooth'});
+  toast(`계획대로 1차 ${BUY_SPLIT[0]}% (${won(qty)}주)를 채웠습니다`);
+}
+function planStats(){
+  const cutoff=new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+  const P=plans().filter(p=>p.date>=cutoff);
+  const done=P.filter(p=>p.status==='done').length;
+  const skip=P.filter(p=>p.status==='skip').length;
+  const unplanned=DB.trades.filter(t=>t.type==='buy'&&!t.imp&&t.date>=cutoff&&!t.planId).length;
+  return {n:P.length,done,skip,unplanned,
+    rate:P.length?done/P.length*100:0,
+    total:done+unplanned,
+    disc:(done+unplanned)?done/(done+unplanned)*100:0};
+}
+function planCard(p){
+  const late=p.madeAt>=p.date;              // 실행일 당일에 세운 계획
+  const due=p.date<=today();
+  const qty=Math.floor((p.amt*BUY_SPLIT[0]/100)/p.pivot);
+  const age=planAge(p);
+  return `<div class="plan ${due?'due':''} ${late?'late':''}">
+    <div class="ph">
+      <div><div class="pn">${esc(p.name)}
+        ${p.credit?'<span class="chip credit">신용</span>':''}
+        <span class="chip">${esc(p.sector||'기타')}</span>
+        ${late?'<span class="chip c">당일 작성</span>':'<span class="chip a">전날 계획</span>'}
+        ${due&&age>0?`<span class="chip c">${age}일 지남</span>`:''}</div>
+        <div class="pm">
+          <span>피벗 <b>${won(p.pivot)}</b></span>
+          <span>손절 <b>${won(p.pivot*(1-(p.stop||DEF_STOP)/100))}</b></span>
+          <span>1차 <b>${won(qty)}주</b></span>
+          <span>총 <b>${won(p.amt)}</b></span>
+        </div></div>
+      <div class="pv">${p.date}</div>
+    </div>
+    ${p.memo?`<div class="pmemo">${esc(p.memo)}</div>`:''}
+    <div class="pacts">
+      ${due?`<button class="btn sm" onclick="applyPlan('${p.id}')">이 계획대로 매수</button>`:''}
+      <button class="btn sm ghost" onclick="skipPlan('${p.id}')">실행 안 함</button>
+      <button class="btn sm ghost" onclick="delPlan('${p.id}')">삭제</button>
+    </div></div>`;
+}
+function renderPlans(){
+  const el=$('planToday');if(!el)return;
+  const O=openPlans(),F=futurePlans();
+  const expired=plans().filter(p=>p.status==='open'&&p.date<=today()&&planAge(p)>PLAN_EXPIRE);
+  $('planCnt').textContent=O.length?`오늘 실행 ${O.length}건`:(F.length?`예정 ${F.length}건`:'계획 없음');
+  let h='';
+  if(O.length){
+    h+=`<div class="grp" style="padding-top:2px">오늘 실행할 계획</div>`+O.map(planCard).join('');
+  }
+  if(F.length){
+    h+=`<div class="grp">예정된 계획</div>`+F.map(planCard).join('');
+  }
+  if(expired.length){
+    h+=`<div class="box warn">${expired.length}건의 계획이 <b>${PLAN_EXPIRE}일</b>을 넘겼습니다.
+      근거가 낡았으니 지우거나 다시 세우세요. ${expired.map(p=>`<button class="lnk" onclick="skipPlan('${p.id}')">${esc(p.name)} 정리</button>`).join(' · ')}</div>`;
+  }
+  if(!O.length&&!F.length&&!expired.length){
+    h=`<div class="empty">세워둔 계획이 없습니다.<br>오늘 저녁에 내일 살 종목을 미리 정해보세요.</div>`;
+  }
+  el.innerHTML=h;
+
+  const S=planStats(),st=$('planStats');
+  if(S.n||S.unplanned){
+    const dc=S.disc>=80?'grn':S.disc>=50?'':'dgr';
+    st.innerHTML=`<div class="planStat">
+      <div><span>계획대로</span><b class="grn">${S.done}</b></div>
+      <div><span>건너뜀</span><b class="mut">${S.skip}</b></div>
+      <div><span>계획 없이 매수</span><b class="${S.unplanned?'dgr':'mut'}">${S.unplanned}</b></div>
+      <div><span>규율 준수율</span><b class="${dc}">${S.disc.toFixed(0)}%</b></div>
+    </div>
+    <div class="hint">최근 30일 기준. <b>계획 없이 매수</b>가 늘어난다면 저녁에 정한 것을 장중에 뒤집고 있다는 뜻입니다.</div>`;
+  }else st.innerHTML='';
+}
+
 /* — 처음부터 다시 시작 — */
 function resetPick(){
   return {trades:$('rsTrades').checked,cash:$('rsCash').checked,snaps:$('rsSnaps').checked,
@@ -3759,7 +4029,7 @@ function doReset(){
   const names={trades:'매매 기록',cash:'현금 내역',snaps:'자산 기록',cfg:'종목 설정',rules:'내 기준값'};
   const list=Object.keys(p).filter(k=>p[k]).map(k=>names[k]).join(', ');
   if(!confirm(`${list}을(를) 지웁니다.\n되돌릴 수 없습니다. 계속할까요?`))return;
-  if(p.trades)DB.trades=[];
+  if(p.trades){DB.trades=[];DB.plans=[];}
   if(p.cash)DB.cash=[];
   if(p.snaps){DB.snaps=[];DB.peak=0;DB.peakFrom='';}
   if(p.cfg){DB.cfg={};DB.prices={};DB.high={};}
@@ -3771,8 +4041,14 @@ function doReset(){
   checks={};mood='';stagePick=0;exitPick='';lotPick='';editId=null;cashEditId=null;
   $('rsConfirm').checked=false;
   save();renderAll();
-  toast('지웠습니다. 시장 탭부터 다시 시작하세요');
-  goto('market');
+  if(p.cash){
+    toast('지웠습니다. 예수금부터 입력하세요');
+    goto('hold');
+    setTimeout(()=>{const el=$('cAmt');if(el&&el.scrollIntoView)el.scrollIntoView({block:'center'});if(el)el.focus();},250);
+  }else{
+    toast('지웠습니다. 시장 탭부터 다시 시작하세요');
+    goto('market');
+  }
 }
 function renderGuide(){
   $('guideBody').innerHTML=GUIDE.map((g,i)=>`<details class="gd">
